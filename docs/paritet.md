@@ -9,7 +9,7 @@ nepromijenjen iz produkcije, uključujući pregledane crvene rubove žutih ploha
 |---|---|---|
 | Popis za kupnju kao glavni prikaz | da | Playwright, 320/390/1280 px |
 | Glasovni unos: jedan pritisak = jedan artikl, odmah spremljen, bez automatskog ponovnog pokretanja | da, isti kod | `tests/glasovni-unos.cjs` |
-| Ručni unos i nabrajanje više artikala | da; decimalni zarez („2,5 m2”) nije razdjelnik | `tests/kosarica.cjs` |
+| Ručni unos i nabrajanje više artikala (bez pomoćnih tekstova, kao nakon PR #9) | da; decimalni zarez („2,5 m2”) nije razdjelnik | `tests/kosarica.cjs` |
 | Količine (+/−), brisanje, oznaka „u košarici”, napredak | da; uz izgovorenu mjeru +/− mijenja m²/m³/kg za 1 | Playwright |
 | Spremanje popisa na uređaju | da (`gradjevina-v1`, odvojeno od košarice) | — |
 | Automatsko razvrstavanje u skupine i pretraga po nazivu | da, s pravilima za građevinski materijal (pribor ≠ materijal, npr. valjak ≠ boja) | `tests/skupine.cjs` |
