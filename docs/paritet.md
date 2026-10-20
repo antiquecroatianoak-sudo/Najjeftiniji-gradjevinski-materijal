@@ -2,7 +2,8 @@
 
 Izvor usporedbe: `antiquecroatianoak-sudo/Najjeftinija-kosarica`, grana `claude/dreamy-hopper-f6e4u0` (28e37c2),
 s ispravkom usporedbe količina iz PR #5. Izgled (raspored, ikone, veličine, fontovi, boje) preuzet je
-nepromijenjen iz produkcije, uključujući pregledane crvene rubove žutih ploha iz PR #6 (oba spojena 20.10.2026., 48410d8).
+nepromijenjen iz produkcije, uključujući pregledane crvene rubove žutih ploha iz PR #6 (oba spojena 20.10.2026., 48410d8) i PR #8
+(istaknuti iznos trgovine = zbroj njezinih kartica, cijela pakiranja; iznos po jedinici je sporedan i označen).
 
 | Funkcija u izvornoj aplikaciji | Ovdje | Provjera |
 |---|---|---|
