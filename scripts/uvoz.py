@@ -1,0 +1,431 @@
+"""
+Uvoz cijena građevinskog materijala i opreme.
+
+Izvori su popisani u scripts/izvori.json. Uvoze se samo izvori koji su ručno
+provjereni ("status": "provjereno") i uključeni ("omogucen": true). Ništa se ne
+izmišlja: ako nijedan izvor ne da podatke, aplikacija se ne objavljuje s praznim
+ili lažnim cjenikom.
+
+Formati:
+  - "csv" / "xml": javni cjenici trgovaca na malo (NN 101/2026, NN 110/2026).
+    Struktura nije propisana, pa se stupci prepoznaju po uobičajenim nazivima
+    (naziv, šifra, marka, MPC, jedinica mjere, cijena za jedinicu mjere...),
+    a izvor može zadati vlastite nazive stupaca ("stupci").
+  - "oglasi-json": ponude iz oglasnika u zajedničkom obliku (vidi docs/izvori.md).
+    Oglas se rangira samo ako su poznati cijena u EUR, količina i jedinica,
+    specifikacija i stanje; ostali su vidljivi kao neuspoređeni.
+
+Rezultat: site/data/proizvodi.json (isti oblik kao u aplikaciji za namirnice,
+verzija 2, uz specifikaciju i podatke o ponudi) i site/data/stanje-izvora.json.
+
+Pokretanje:  python scripts/uvoz.py [--izvori put/izvori.json] [--lokalno datoteka ...]
+"""
+
+import argparse
+import csv
+import io
+import json
+import math
+import re
+import sys
+import unicodedata
+import urllib.request
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+KORIJEN = Path(__file__).resolve().parent.parent
+IZVORI = KORIJEN / "scripts" / "izvori.json"
+IZLAZ = KORIJEN / "site" / "data" / "proizvodi.json"
+STANJE = KORIJEN / "site" / "data" / "stanje-izvora.json"
+# Oglas stariji od ovoga smatra se zastarjelim i ne prikazuje se.
+OGLAS_VRIJEDI_DANA = 7
+
+# Jedinica -> (osnovna jedinica, faktor).
+JEDINICE = {
+    "mg": ("kg", 1e-6), "g": ("kg", 0.001), "gr": ("kg", 0.001), "dag": ("kg", 0.01),
+    "kg": ("kg", 1), "t": ("kg", 1000), "tona": ("kg", 1000),
+    "ml": ("l", 0.001), "cl": ("l", 0.01), "dl": ("l", 0.1), "l": ("l", 1), "lit": ("l", 1), "litra": ("l", 1),
+    "mm": ("m", 0.001), "cm": ("m", 0.01), "m": ("m", 1), "dm": ("m", 0.1), "met": ("m", 1), "metar": ("m", 1),
+    "m2": ("m2", 1), "m²": ("m2", 1), "m^2": ("m2", 1), "qm": ("m2", 1),
+    "m3": ("m3", 1), "m³": ("m3", 1), "m^3": ("m3", 1),
+    "kom": ("kom", 1), "komad": ("kom", 1), "kos": ("kom", 1), "par": ("kom", 1),
+}
+# Granice prepoznavanja količine (ne cijene): izvan njih količina je nepoznata, ponuda ostaje vidljiva.
+NAJVISE = {"kg": 2000, "l": 1000, "m": 1000, "m2": 500, "m3": 50, "kom": 10000}
+
+STUPCI = {
+    "naziv": ["naziv", "naziv proizvoda", "naziv artikla", "proizvod", "artikl", "name"],
+    "sifra": ["sifra", "sifra proizvoda", "sifra artikla", "kod", "kod proizvoda", "product id", "id"],
+    "marka": ["marka", "marka proizvoda", "robna marka", "brand"],
+    "cijena": ["mpc", "maloprodajna cijena", "cijena", "price", "mpc eur", "maloprodajna cijena eur"],
+    "posebna": ["posebna cijena", "akcijska cijena", "mpc za vrijeme posebnog oblika prodaje", "special price"],
+    "jedinica": ["jedinica mjere", "jedinica", "jm", "unit"],
+    "kolicina": ["neto kolicina", "kolicina", "neto kolicina proizvoda", "quantity"],
+    "jedinicna": ["cijena za jedinicu mjere", "jedinicna cijena", "cijena po jedinici mjere", "unit price"],
+    "barkod": ["barkod", "ean", "ean kod", "barcode"],
+}
+
+BROJ = r"(\d+(?:[.,]\d+)?)"
+JED = r"(mm|cm|dm|m2|m²|m\^2|m3|m³|m\^3|m|mg|kg|g|gr|ml|cl|dl|l|kom|komad|t)(?![a-z0-9])"
+RE_VISE = re.compile(rf"(\d+)\s*[x×]\s*{BROJ}\s*(kg|g|l|ml|m2|m²|m3|m³)(?![a-z0-9])", re.I)
+RE_JEDNO = re.compile(rf"{BROJ}\s*{JED}", re.I)
+# "60x60 cm", "120x60x10 cm": dimenzije, nikad količina pakiranja.
+RE_DIMENZIJE = re.compile(rf"\d+(?:[.,]\d+)?(?:\s*[x×]\s*\d+(?:[.,]\d+)?)+\s*(mm|cm|m)(?![a-z0-9])", re.I)
+
+
+def normaliziraj(tekst: str) -> str:
+    tekst = (tekst or "").lower().replace("đ", "d")
+    tekst = "".join(z for z in unicodedata.normalize("NFD", tekst) if not unicodedata.combining(z))
+    return re.sub(r"[^a-z0-9]+", " ", tekst).strip()
+
+
+def u_broj(vrijednost) -> float | None:
+    """'1.234,56' i '1234.56' -> 1234.56; prazno/neispravno -> None."""
+    if vrijednost is None:
+        return None
+    s = str(vrijednost).strip().replace(" ", "").replace(" ", "").replace("€", "").replace("EUR", "")
+    if not s:
+        return None
+    if "," in s and "." in s:
+        s = s.replace(".", "").replace(",", ".") if s.rfind(",") > s.rfind(".") else s.replace(",", "")
+    else:
+        s = s.replace(",", ".")
+    try:
+        broj = float(s)
+    except ValueError:
+        return None
+    return broj if math.isfinite(broj) and broj > 0 else None
+
+
+def u_osnovnu(iznos: float, jedinica: str) -> tuple[float, str] | None:
+    osnovna = JEDINICE.get((jedinica or "").strip().lower().rstrip("."))
+    if not osnovna or not iznos or iznos <= 0:
+        return None
+    vrijednost = iznos * osnovna[1]
+    if vrijednost > NAJVISE[osnovna[0]]:
+        return None
+    return round(vrijednost, 6), osnovna[0]
+
+
+def iz_naziva(naziv: str) -> tuple[float, str] | None:
+    """Količina iz naziva: '25 kg', '15 l', '2,5 m2/pak', '4x5 kg'. Dimenzije se preskaču."""
+    tekst = RE_DIMENZIJE.sub(" ", naziv or "")
+    if m := RE_VISE.search(tekst):
+        jedno = u_osnovnu(u_broj(m.group(2)) or 0, m.group(3))
+        if jedno:
+            return u_osnovnu(int(m.group(1)) * jedno[0], jedno[1])
+    for m in RE_JEDNO.finditer(tekst):
+        jed = m.group(2).lower()
+        # Samostalni mm/cm u nazivu opisuju debljinu ili promjer, ne količinu.
+        if jed in ("mm", "cm", "dm"):
+            continue
+        if rezultat := u_osnovnu(u_broj(m.group(1)) or 0, jed):
+            return rezultat
+    return None
+
+
+def mjera(kolicina: str, jedinica: str, cijena: float | None, jedinicna: float | None, naziv: str):
+    """
+    (iznos, osnovna jedinica) ili None. Redoslijed: neto količina + jedinica mjere iz cjenika,
+    zatim MPC / cijena za jedinicu mjere (oba obvezna u javnom cjeniku), pa naziv.
+    """
+    jedinica = (jedinica or "").strip().lower().rstrip(".")
+    broj = u_broj(kolicina)
+    if broj and jedinica in JEDINICE:
+        if (r := u_osnovnu(broj, jedinica)) and not (r[1] == "kom" and r[0] == 1):
+            return r
+    elif kolicina and (m := RE_JEDNO.search(str(kolicina))):
+        if r := u_osnovnu(u_broj(m.group(1)) or 0, m.group(2)):
+            return r
+    # Za "kom" cijena za jedinicu mjere obično je po kg/l/m², a ta jedinica nije zapisana.
+    if cijena and jedinicna and jedinica in JEDINICE and JEDINICE[jedinica][0] != "kom":
+        osnovna, faktor = JEDINICE[jedinica]
+        # Cijena za jedinicu mjere odnosi se na zadanu jedinicu (npr. €/kg ili €/m²).
+        iznos = round(cijena * faktor / jedinicna, 6)
+        if 0 < iznos <= NAJVISE[osnovna] and not (osnovna == "kom" and abs(iznos - 1) < 1e-9):
+            return iznos, osnovna
+    if r := iz_naziva(naziv):
+        return r
+    if jedinica in JEDINICE:
+        osnovna, faktor = JEDINICE[jedinica]
+        if faktor == 1:
+            return 1.0, osnovna  # cijena je za jednu jedinicu mjere (vaga, metraža, komad)
+    return None
+
+
+SPEC = [
+    (re.compile(r"\b(eps)\s*-?\s*(\d{2,3}|f|t)\b", re.I), lambda m: f"EPS {m.group(2).upper()}"),
+    (re.compile(r"\bxps\b", re.I), lambda m: "XPS"),
+    (re.compile(r"\bcem\s*(i{1,3}|iv|v)(?:\s*/\s*([ab]))?\b", re.I), lambda m: "CEM " + m.group(1).upper() + (f"/{m.group(2).upper()}" if m.group(2) else "")),
+    (re.compile(r"\b(c[12])\s*(t?e?s?[12]?)\b", re.I), lambda m: (m.group(1) + m.group(2)).upper()),
+    (re.compile(r"\bc(\d{2})/(\d{2})\b", re.I), lambda m: f"C{m.group(1)}/{m.group(2)}"),
+    (re.compile(r"(?:ø|fi|φ|dn)\s*(\d+(?:[.,]\d+)?)", re.I), lambda m: f"Ø{m.group(1).replace('.', ',')}"),
+]
+RE_DEBLJINA = re.compile(r"(?<![x×\d.,])(\d+(?:[.,]\d+)?)\s*(mm|cm)(?![a-z0-9])(?!\s*[x×])", re.I)
+
+
+def specifikacija(naziv: str, jedinica: str) -> str:
+    """Oznake koje moraju biti iste da bi se ponude uspoređivale po jedinici (debljina, razred, promjer)."""
+    oznake = []
+    for regex, oblik in SPEC:
+        if m := regex.search(naziv or ""):
+            oznake.append(oblik(m))
+    if jedinica in ("m", "m2", "m3", "kom"):
+        bez_dimenzija = RE_DIMENZIJE.sub(lambda m: " ", naziv or "")
+        if m := RE_DEBLJINA.search(bez_dimenzija):
+            mm = (u_broj(m.group(1)) or 0) * (10 if m.group(2).lower() == "cm" else 1)
+            if mm and not any(o.startswith("Ø") for o in oznake):
+                oznake.append(f"{mm:g} mm".replace(".", ","))
+        if m := RE_DIMENZIJE.search(naziv or ""):
+            oznake.append(re.sub(r"\s+", "", m.group(0)).replace("×", "x"))
+    return " · ".join(dict.fromkeys(oznake))
+
+
+def opis_mjere(iznos: float, jedinica: str) -> str:
+    if jedinica == "kg" and iznos < 1:
+        tekst, jed = f"{iznos * 1000:g}", "g"
+    elif jedinica == "l" and iznos < 1:
+        tekst, jed = f"{iznos * 1000:g}", "ml"
+    else:
+        tekst, jed = f"{iznos:g}", {"m2": "m²", "m3": "m³"}.get(jedinica, jedinica)
+    return f"{tekst.replace('.', ',')} {jed}"
+
+
+def broj_rijeci_marke(naziv: str, marka: str) -> int:
+    n, m = normaliziraj(naziv).split(), normaliziraj(marka).split()
+    return len(m) if m and len(n) > len(m) and n[: len(m)] == m else 0
+
+
+# ---------- Čitanje cjenika ----------
+def _kljuc_stupca(ime: str, vlastiti: dict) -> str | None:
+    n = normaliziraj(ime)
+    for kljuc, naziv in (vlastiti or {}).items():
+        if normaliziraj(naziv) == n:
+            return kljuc
+    for kljuc, nazivi in STUPCI.items():
+        if n in nazivi:
+            return kljuc
+    return None
+
+
+def dekodiraj(sadrzaj: bytes) -> str:
+    for kodiranje in ("utf-8-sig", "cp1250"):
+        try:
+            return sadrzaj.decode(kodiranje)
+        except UnicodeDecodeError:
+            continue
+    return sadrzaj.decode("latin-1")
+
+
+def citaj_csv(tekst: str, vlastiti: dict | None = None):
+    uzorak = tekst[:4096]
+    try:
+        dijalekt = csv.Sniffer().sniff(uzorak, delimiters=";,\t|")
+    except csv.Error:
+        dijalekt = csv.excel
+        dijalekt.delimiter = ";" if uzorak.count(";") > uzorak.count(",") else ","
+    redovi = csv.reader(io.StringIO(tekst), dijalekt)
+    zaglavlje = next(redovi, [])
+    kljucevi = [_kljuc_stupca(z, vlastiti) for z in zaglavlje]
+    if "naziv" not in kljucevi or "cijena" not in kljucevi:
+        raise ValueError(f"CSV nema prepoznate stupce naziv i cijena: {zaglavlje}")
+    for red in redovi:
+        zapis = {k: v.strip() for k, v in zip(kljucevi, red) if k}
+        if zapis.get("naziv"):
+            yield zapis
+
+
+def citaj_xml(tekst: str, vlastiti: dict | None = None):
+    korijen = ET.fromstring(tekst.encode("utf-8") if isinstance(tekst, str) else tekst)
+    nadjeno = False
+    for el in korijen.iter():
+        djeca = list(el)
+        if not djeca:
+            continue
+        zapis = {}
+        for d in djeca:
+            k = _kljuc_stupca(re.sub(r"[_\-]", " ", d.tag.split("}")[-1]), vlastiti)
+            if k and (d.text or "").strip():
+                zapis[k] = d.text.strip()
+        if zapis.get("naziv") and zapis.get("cijena"):
+            nadjeno = True
+            yield zapis
+    if not nadjeno:
+        raise ValueError("XML nema zapisa s nazivom i cijenom")
+
+
+# ---------- Oglasi ----------
+def ocijeni_oglas(o: dict, sada: datetime) -> tuple[bool, str]:
+    """(rangira se?, razlog). Nepotpuni oglasi ostaju vidljivi, ali nikad nisu 'najpovoljniji'."""
+    if o.get("cijenaNaUpit") or u_broj(o.get("cijena")) is None:
+        return False, "cijena na upit ili nepoznata"
+    if (o.get("valuta") or "").upper() != "EUR":
+        return False, "cijena nije u eurima"
+    if o.get("pregovaranje"):
+        return False, "cijena po dogovoru"
+    if o.get("stanje") not in ("novo", "rabljeno"):
+        return False, "stanje nije navedeno"
+    if not u_broj(o.get("kolicina")) or (o.get("jedinica") or "").lower() not in JEDINICE:
+        return False, "količina ili jedinica nije navedena"
+    if not (o.get("specifikacija") or "").strip():
+        return False, "specifikacija nije navedena"
+    if o.get("pdv") not in ("ukljucen", "nije-obveznik"):
+        return False, "nije jasno je li PDV uključen"
+    return True, ""
+
+
+def oglas_aktivan(o: dict, sada: datetime) -> bool:
+    if o.get("aktivno") is False or o.get("prodano"):
+        return False
+    try:
+        provjereno = datetime.fromisoformat(str(o.get("provjereno")).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if provjereno.tzinfo is None:
+        provjereno = provjereno.replace(tzinfo=timezone.utc)
+    return sada - provjereno <= timedelta(days=OGLAS_VRIJEDI_DANA)
+
+
+def kljuc_oglasa(o: dict) -> str:
+    """Isti oglas objavljen na više oglasnika: isti naslov, cijena i mjesto."""
+    return "|".join([normaliziraj(o.get("naziv")), f"{u_broj(o.get('cijena')) or 0:.2f}", normaliziraj(o.get("lokacija"))])
+
+
+# ---------- Obrada ----------
+def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[dict, list[dict]]:
+    """
+    izvori: provjereni izvori iz izvori.json. ucitaj(izvor) -> bytes ili str sadržaj.
+    Vraća (podaci za aplikaciju ili None, stanje svakog izvora).
+    """
+    sada = sada or datetime.now(timezone.utc)
+    lanci, vrste, stanje = [], [], []
+    svi: dict[str, dict] = {}
+    vidjeni_oglasi: dict[str, str] = {}
+    for izvor in izvori:
+        zapis_stanja = {"id": izvor["id"], "naziv": izvor["naziv"], "vrsta": izvor.get("vrsta", "trgovina")}
+        try:
+            sadrzaj = ucitaj(izvor)
+            tekst = dekodiraj(sadrzaj) if isinstance(sadrzaj, bytes) else sadrzaj
+            if izvor.get("format") == "oglasi-json":
+                stavke = json.loads(tekst)
+                if not isinstance(stavke, list):
+                    raise ValueError("oglasi-json mora biti popis oglasa")
+            elif izvor.get("format") == "xml":
+                stavke = list(citaj_xml(tekst, izvor.get("stupci")))
+            else:
+                stavke = list(citaj_csv(tekst, izvor.get("stupci")))
+        except Exception as e:  # noqa: BLE001 - jedan neispravan izvor ne ruši ostale
+            stanje.append({**zapis_stanja, "uspjeh": False, "greska": str(e)[:300]})
+            continue
+
+        idx = len(lanci)
+        lanci.append(izvor["naziv"])
+        vrste.append(izvor.get("vrsta", "trgovina"))
+        primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = 0
+        for s in stavke:
+            primljeno += 1
+            meta = None
+            if izvor.get("format") == "oglasi-json":
+                if not oglas_aktivan(s, sada):
+                    zastarjelo += 1
+                    continue
+                k = kljuc_oglasa(s)
+                if k in vidjeni_oglasi:
+                    duplikata += 1
+                    continue
+                vidjeni_oglasi[k] = izvor["id"]
+                rangira, razlog = ocijeni_oglas(s, sada)
+                cijena = u_broj(s.get("cijena"))
+                if cijena is None or round(cijena, 2) <= 0.01:
+                    # Bez cijene nema iznosa za zbroj; oglas se ne prikazuje kao ponuda s cijenom.
+                    odbaceno += 1
+                    continue
+                naziv = str(s.get("naziv") or "").strip()
+                m = u_osnovnu(u_broj(s.get("kolicina")) or 0, s.get("jedinica") or "") if rangira else None
+                spec = str(s.get("specifikacija") or "").strip()
+                meta = {"izvor": izvor["naziv"], "url": s.get("url") if str(s.get("url", "")).startswith("https://") else "",
+                        "provjereno": str(s.get("provjereno"))[:10], "stanje": s.get("stanje") or "",
+                        "napomena": " · ".join(x for x in [s.get("lokacija") or "", s.get("dostava") or ""] if x)}
+                if not rangira or not m:
+                    meta["razlog"] = razlog or "količina nije prepoznata"
+                    neuspordeno += 1
+                kljuc = f"oglas:{izvor['id']}:{s.get('id') or k}"
+                marka = ""
+            else:
+                cijene = [c for c in (u_broj(s.get("cijena")), u_broj(s.get("posebna"))) if c and round(c, 2) > 0.01]
+                if not cijene:
+                    odbaceno += 1
+                    continue
+                cijena = min(cijene)
+                naziv = s["naziv"]
+                marka = s.get("marka", "")
+                m = mjera(s.get("kolicina", ""), s.get("jedinica", ""), u_broj(s.get("cijena")), u_broj(s.get("jedinicna")), naziv)
+                spec = specifikacija(naziv, m[1]) if m else ""
+                barkod = (s.get("barkod") or "").strip()
+                kljuc = barkod or f"{izvor['id']}:{s.get('sifra') or normaliziraj(naziv)}"
+            prihvaceno += 1
+            zapis = svi.get(kljuc)
+            if zapis is None:
+                zapis = svi[kljuc] = {"cijene": {}, "mjera": m, "spec": spec, "meta": meta, "najniza": None}
+            if idx not in zapis["cijene"] or cijena < zapis["cijene"][idx]:
+                zapis["cijene"][idx] = cijena
+            if zapis["najniza"] is None or cijena < zapis["najniza"]:
+                zapis["najniza"], zapis["naziv"], zapis["marka"] = cijena, naziv, marka
+        stanje.append({**zapis_stanja, "uspjeh": True, "primljeno": primljeno, "prihvaceno": prihvaceno,
+                       "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata,
+                       "neusporedeno": neuspordeno})
+
+    proizvodi = []
+    for z in svi.values():
+        iznos, jedinica = z["mjera"] or (0, "")
+        cijene = sorted(z["cijene"].items(), key=lambda lc: lc[1])
+        proizvodi.append([
+            z["naziv"], opis_mjere(iznos, jedinica) if jedinica else "", iznos, jedinica,
+            broj_rijeci_marke(z["naziv"], z["marka"]),
+            [x for lanac, c in cijene for x in (lanac, round(c, 2))],
+            z["spec"], z["meta"],
+        ])
+    proizvodi.sort(key=lambda p: p[5][1])
+    if not proizvodi:
+        return None, stanje
+    return {"verzija": 2, "datum": sada.date().isoformat(), "azurirano": sada.isoformat(timespec="minutes"),
+            "lanci": lanci, "vrsteIzvora": vrste, "proizvodi": proizvodi}, stanje
+
+
+def preuzmi(izvor: dict) -> bytes:
+    zahtjev = urllib.request.Request(izvor["url"], headers={"User-Agent": "najjeftiniji-gradjevinski-materijal/1 (javni cjenik)"})
+    with urllib.request.urlopen(zahtjev, timeout=120) as r:
+        return r.read()
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--izvori", type=Path, default=IZVORI)
+    ap.add_argument("--lokalno", nargs="*", default=[], help="id=datoteka: koristi lokalnu datoteku umjesto preuzimanja")
+    a = ap.parse_args()
+    svi_izvori = json.loads(a.izvori.read_text(encoding="utf-8"))["izvori"]
+    lokalno = dict(x.split("=", 1) for x in a.lokalno)
+    aktivni = [i for i in svi_izvori if i.get("omogucen") and i.get("status") == "provjereno"]
+    ucitaj = lambda izvor: Path(lokalno[izvor["id"]]).read_bytes() if izvor["id"] in lokalno else preuzmi(izvor)
+    podaci, stanje = obradi(aktivni, ucitaj)
+    preskoceni = [{"id": i["id"], "naziv": i["naziv"], "vrsta": i.get("vrsta", "trgovina"), "status": i.get("status"),
+                   "napomena": i.get("napomena", "")} for i in svi_izvori if i not in aktivni]
+    STANJE.parent.mkdir(parents=True, exist_ok=True)
+    STANJE.write_text(json.dumps({"azurirano": datetime.now(timezone.utc).isoformat(timespec="minutes"),
+                                  "uvezeno": stanje, "nije-uvezeno": preskoceni}, ensure_ascii=False, indent=1), encoding="utf-8")
+    for s in stanje:
+        print(("OK " if s["uspjeh"] else "GREŠKA ") + json.dumps(s, ensure_ascii=False))
+    print(f"Neuključeni izvori: {len(preskoceni)} (nisu provjereni ili su isključeni)")
+    if podaci is None:
+        print("Nema provjerenih izvora s podacima; cjenik se ne objavljuje.")
+        if IZLAZ.exists():
+            IZLAZ.unlink()
+        return 0
+    IZLAZ.write_text(json.dumps(podaci, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Gotovo: {len(podaci['proizvodi'])} ponuda iz {len(podaci['lanci'])} izvora -> {IZLAZ}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

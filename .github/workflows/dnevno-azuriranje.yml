@@ -1,0 +1,65 @@
+name: Dnevno ažuriranje cijena
+
+on:
+  schedule:
+    - cron: "37 7 * * *"   # nakon što trgovci objave cjenike (najkasnije do 8:00 po hrvatskom vremenu)
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  azuriraj-i-objavi:
+    # Objavljuje se samo glavna grana repozitorija.
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.objava.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Provjeri aplikaciju i uvoz
+        run: |
+          python tests/uvoz.py
+          node tests/skupine.cjs
+          node tests/kosarica.cjs
+          node tests/glasovni-unos.cjs
+
+      - name: Preuzmi cjenike provjerenih izvora
+        id: uvoz
+        run: |
+          python scripts/uvoz.py
+          if [ -f site/data/proizvodi.json ]; then echo "ima=da" >> "$GITHUB_OUTPUT"; else echo "::notice::Nema provjerenih izvora s podacima; objava je preskočena."; fi
+
+      - name: Pripremi skupine za novi cjenik
+        if: steps.uvoz.outputs.ima == 'da'
+        run: node scripts/razvrstaj.cjs
+
+      - uses: actions/configure-pages@v5
+        if: steps.uvoz.outputs.ima == 'da'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.uvoz.outputs.ima == 'da'
+        with:
+          path: site
+
+      - name: Objavi aplikaciju
+        if: steps.uvoz.outputs.ima == 'da'
+        id: objava
+        uses: actions/deploy-pages@v4
