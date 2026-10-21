@@ -24,6 +24,9 @@ assert.deepEqual(ids('mješalica'), ['Mješalica za beton 140 l']);
 assert(!ids('beton').includes('Mješalica za beton 140 l'), 'a concrete mixer is not concrete');
 assert(!ids('beton').includes('Kolica za beton 80 l'));
 assert.deepEqual(ids('vijci'), ['Vijak za drvo 4x40'], 'plural query finds singular product');
+// Stvarni nalaz revizije (run 29): upit „čavao” mora naći „Čavli…”, i velikim slovima i bez dijakritike.
+const cavli = Skupine.pripremi([['Čavli građevinski 3,4x80 mm', '', 1, 'kom', 0, [0, 1]], ['ČAVLI 12 (42X120) 1/1 KG', '', 1, 'kg', 0, [0, 1]]]);
+for (const q of ['čavao', 'ČAVAO', 'cavao', 'Čavli']) assert.deepEqual(cavli.pogoci(q), [0, 1], q);
 assert.equal(g.pogoci('nepoznata stvar'), null, 'unknown words fall back to plain search');
 // Spremljeni indeks mora odgovarati cjeniku.
 const indeks = g.izvezi();

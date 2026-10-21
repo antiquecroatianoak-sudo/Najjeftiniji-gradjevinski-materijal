@@ -9,7 +9,7 @@
     const k = s.length >= 4 ? s.replace(/[aeiou]+$/, "") : s;
     return k.length < 3 ? s : k; // Kratke riječi (npr. „xps”) ostaju cijele.
   };
-  const nastavci = new Set(["", "a", "e", "i", "o", "u", "om", "em", "im", "ima", "ama", "ih", "oj", "og", "ja", "je", "ji", "ju", "jom", "ovi", "ove", "ova", "evi", "eve"]);
+  const nastavci = new Set(["", "a", "ao", "e", "i", "o", "u", "om", "em", "im", "ima", "ama", "ih", "oj", "og", "ja", "je", "ji", "ju", "jom", "ovi", "ove", "ova", "evi", "eve"]);
   const odgovara = (w, k) => w.startsWith(k) && nastavci.has(w.slice(k.length));
   const prijedlozi = new Set(["s", "sa", "od", "za", "u", "na", "bez", "iz", "po"]);
   // id | naziv osnovne vrste | istovrijedni nazivi, a ne sastojci te vrste

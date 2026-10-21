@@ -235,7 +235,18 @@ o.azuriraj_red(red, [{"domena": "trg0.hr", "prihvacen": True}])
 danas, _pr = o.trgovci_iz_imenika_s_redom([{"url": "https://im4.hr/"}], lambda url: IM[url], set(), red)
 assert "trg0.hr" in {d["domena"] for d in danas}, "accepted directory domains are checked every day"
 o.NAJVISE_STRANICA_IMENIKA, o.NAJVISE_NOVIH = stare
+# JS izazov (npr. „One moment, please...”) je ograničenje pristupa; ranije prihvaćen trgovac ostaje izvor za predmemoriju.
+J = {"https://j.hr/": b"<html><head><title>One moment, please...</title></head></html>"}
+rj = o.run([{"domena": "j.hr", "naziv": "j.hr", "pocetna": "https://j.hr/"}],
+           lambda url: J[url] if url in J else (_ for _ in ()).throw(OSError("HTTP Error 404")), lambda url: True, sada)
+assert rj[0]["razlog"].startswith("zaštita od automatskog pristupa"), rj
+red2 = {"zadnji_prihvaceni": {"j.hr": {"domena": "j.hr", "naziv": "J", "tip": "stalni", "url": "https://j.hr/c.xml", "format": "xml"}}}
+o.zadrzi_prethodne(red2, rj)
+assert rj[0]["prihvacen"] and rj[0]["iz_prethodnog_otkrivanja"] and rj[0]["url"] == "https://j.hr/c.xml", rj
+zast = [{"domena": "j.hr", "prihvacen": False, "razlog": "zastario cjenik od 2026-10-01"}]
+o.zadrzi_prethodne(red2, zast)
+assert not zast[0]["prihvacen"] and "j.hr" not in red2["zadnji_prihvaceni"], "a content reason drops the source"
 print("DISCOVERY PASS: link + known-path discovery, validation, duplicate supplier, expired, too small, 403, robots.txt, "
       "directory discovery of new domains, construction relevance, same-supplier dedup, parse diagnostics, soft-404 HTML, link-text and subdomain files, "
-      "directory sub-pages, small/mixed stores kept, OIB dedup, homepage dated file, feed by content, rotation queue, "
+      "directory sub-pages, small/mixed stores kept, OIB dedup, homepage dated file, feed by content, rotation queue, bot challenge kept as access block, last accepted source kept, "
       "inclusion, rerun without duplicates, failed source from last valid list, stale cache excluded, atomic publish")

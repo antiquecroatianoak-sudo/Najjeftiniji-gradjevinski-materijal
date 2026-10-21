@@ -42,6 +42,10 @@ RE_DOMENA_U_TEKSTU = re.compile(r"(?<![\w@.%-])(?<!%2f)(?<!%2F)(?:https?:\\?/\\?
 RE_WEBSHOP = re.compile(r'itemprop=["\']price|"@type"\s*:\s*"Product"|woocommerce|add-to-cart|dodaj u košaricu|u košaricu', re.I)
 # Samo tehničke krajnje točke; RSS, sitemap i proizvodni feedovi razlikuju se po sadržaju u provjeri().
 RE_NIJE_CJENIK = re.compile(r"wp-json|oembed", re.I)
+# Stranica zaštite od automatskog pristupa (JS izazov): to je ograničenje pristupa i ne zaobilazi se.
+RE_IZAZOV = re.compile(r"One moment, please|Just a moment|Checking your browser|cf-chl|challenge-platform|captcha", re.I)
+# Razlozi koji znače da danas nema pristupa, a ne da izvor više ne vrijedi.
+PRISTUP = ("naslovna nedostupna", "zaštita od automatskog pristupa", "cjenik nije pronađen")
 # Izvor je valjan ako ima barem jednu valjanu datiranu ponudu. Mali izvori i mješovite trgovine se ne odbacuju heuristikom:
 # ispod ovih pragova dobivaju napomenu za pregled, a mješovita trgovina uvozi samo artikle s građevinskim pojmom.
 MALI_IZVOR = 20
@@ -323,7 +327,9 @@ def run(trgovci: list[dict], dohvati, smije, sada: datetime | None = None) -> li
             trgovac = {**trgovac, "naslovna": str(e)[:120]}
         nadjeni = otkrij(trgovac["pocetna"], dohvati, smije)
         if not nadjeni:
-            if not dostupna:
+            if dostupna and RE_IZAZOV.search(html[:20000]):
+                razlog = "zaštita od automatskog pristupa (JS izazov); pristup se ne zaobilazi"
+            elif not dostupna:
                 razlog = f"naslovna nedostupna ({trgovac['naslovna']})"
             elif RE_WEBSHOP.search(html):
                 razlog = "cijene samo na HTML stranicama webshopa; strojno čitljiv cjenik (CSV/XML) nije pronađen"
@@ -401,6 +407,27 @@ def trgovci_iz_imenika_s_redom(imenici: list[dict], dohvati, poznate: set, red: 
     return stalni + prozor, pregled_imenika
 
 
+POLJA_KANDIDATA = ("domena", "naziv", "tip", "url", "stranica", "format", "samo_gradjevinski", "datum", "provjereno", "oib")
+
+
+def zadrzi_prethodne(red: dict, rezultat: list[dict]) -> None:
+    """
+    Trgovac koji je ranije prošao provjeru, a danas je nedostupan (403, JS izazov, cjenik se ne vidi), ostaje izvor:
+    uvoz tada koristi zadnji valjani cjenik iz predmemorije s izvornim datumom, a stariji od dopuštenog se ne rangira.
+    Ako je razlog sadržajni (zastario, nepodržan format, prazna datoteka), izvor se ne zadržava.
+    """
+    zadnji = red.setdefault("zadnji_prihvaceni", {})
+    for r in rezultat:
+        if r.get("prihvacen") and not r.get("iz_prethodnog_otkrivanja"):
+            zadnji[r["domena"]] = {k: r[k] for k in POLJA_KANDIDATA if r.get(k) is not None}
+        elif not r.get("prihvacen") and r["domena"] in zadnji:
+            if r.get("razlog", "").startswith(PRISTUP):
+                r.update({**zadnji[r["domena"]], "prihvacen": True, "iz_prethodnog_otkrivanja": True,
+                          "danasnji_razlog": r.get("razlog", "")})
+            else:
+                del zadnji[r["domena"]]
+
+
 def azuriraj_red(red: dict, rezultat: list[dict]) -> None:
     iz_reda = {d["domena"] for d in red["domene"]}
     for r in rezultat:
@@ -433,6 +460,7 @@ def main():
     trgovci_iz_imenika, pregled_imenika = trgovci_iz_imenika_s_redom(imenici, dohvati, poznate, red)
     rezultat = run(trgovci + trgovci_iz_imenika, dohvati, smije)
     rezultat = dedupliciraj(rezultat)
+    zadrzi_prethodne(red, rezultat)
     azuriraj_red(red, rezultat)
     spremi_red(RED, red)
     IZLAZ.parent.mkdir(parents=True, exist_ok=True)
