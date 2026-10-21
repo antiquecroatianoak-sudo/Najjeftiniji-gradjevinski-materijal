@@ -1,7 +1,7 @@
 # Izvori cijena — stanje provjere (21.10.2026.)
 
 Uvoze se samo izvori koje je čovjek provjerio i uključio u `scripts/izvori.json`
-(`"status": "provjereno"`, `"omogucen": true`). Uključena su **3 trgovca** (Gavroprom, Top Alati, Veker), provjerena stvarnim uvozom cijelih datoteka.
+(`"status": "provjereno"`, `"omogucen": true`). Uključeno je **7 trgovaca**, svaki provjeren stvarnim uvozom cijele datoteke 21.10.2026.
 Nijedna cijena nije izmišljena.
 
 ## Pravna osnova za trgovine
@@ -32,25 +32,25 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 | Bauhaus | trgovina | blokirano | Dohvat 403. Javni cjenik obvezan od 17.11.2026. |
 | Bačelić | trgovina | blokirano | Stranica navodi CSV/XML; dohvat 403. |
 | Arkor | trgovina | blokirano | Dohvat 403; URL cjenika nije potvrđen. |
-| Profi baucentar | trgovina | neprovjereno | Ispravna domena profibaucentar.hr (200); cjenik nije pronađen. |
+| Profi baucentar | trgovina | **uključeno** | Javni `sidrena-cijena.xml` (profibaucentar.hr): 2017 primljeno, 1543 prihvaćeno, 474 nedostupno; datum iz `generated`. |
 | Vijci (Kralj commerce) | trgovina | neprovjereno | Dohvat 503; identitet nije provjeren. |
 | IKOMA | trgovina | neprovjereno | Navedena stranica nije cjenik (prazna pretraga). |
 | Fero-Term | trgovina | neprovjereno | fero-term.hr dostupna (200); cjenik nije pronađen. |
 | Petrokov | trgovina | neprovjereno | petrokov.hr dostupna (200); cjenik nije pronađen. |
-| TERMO-METAL (Pakrac) | trgovina | neprovjereno | termo-metal.hr/home/cjenik (200) vodi na današnji XML s datumom u nazivu; struktura još nije viđena. |
+| TERMO-METAL (Pakrac) | trgovina | **uključeno** | Stvarni uvoz 21.10.2026.: 3381 primljeno, 3115 prihvaćeno, 266 nedostupno; datum iz naziva datoteke. |
 | Termometal (Garešnica) | trgovina | neprovjereno | Drugi trgovac (termometal.hr); cjenik nije pronađen. |
 | Akord Županja | trgovina | neprovjereno | akord-zupanja.hr/cjenik — službena stranica cjenika; datoteke još nisu viđene. |
-| Građevinska apoteka | trgovina | neprovjereno | Stranica navodi stalni `sidrena-cijena.xml`; datum mora doći iz zaglavlja XML-a; struktura još nije viđena. |
+| Građevinska apoteka | trgovina | **uključeno** | Stalni `sidrena-cijena.xml`: 292 proizvoda, 286 prihvaćeno, 3 nedostupno; datum iz `generated` (UTC → Zagreb). |
 | Gradnja invest | trgovina | neprovjereno | CSV u podnožju kataloga; datoteka još nije viđena. |
-| Telack | trgovina | neprovjereno | CSV/XML u podnožju; datoteke i asortiman još nisu provjereni. |
+| Telack | trgovina | **uključeno** | Stalni `cjenik-webshop.xml`: 470 primljeno, 470 prihvaćeno; datum iz `datum` (DD.MM.GGGG). |
 | Mirakul inovativna grijanja | trgovina | neprovjereno | XML u podnožju; oprema za grijanje. |
 | Njuškalo | oglasnik | blokirano | Službeni API nije pronađen; automatsko prikupljanje bez dopuštenja se ne radi. |
 | Index Oglasi | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Plavi oglasnik | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Facebook Marketplace | oglasnik | blokirano | Zahtijeva prijavu; prijave i CAPTCHA se ne zaobilaze. |
 
-Popisano je 19 različitih trgovaca (poslovnice istog trgovca ne broje se zasebno). **Uključeno: 3** (Gavroprom, Top Alati, Veker). Statusi 403/503, brojke stvarnog uvoza i
-podaci o datotekama potječu iz ChatGPT-ova okruženja (verzija 44655df); iz ovog razvojnog okruženja ti hostovi su blokirani.
+Popisano je 19 različitih trgovaca (poslovnice istog trgovca ne broje se zasebno). **Uključeno: 7** (Gavroprom, Top Alati, Veker, TERMO-METAL, Građevinska apoteka, Telack, Profi baucentar); ostalih 12 nije aktivno. Statusi 403/503, brojke stvarnog uvoza i
+podaci o datotekama potječu iz ChatGPT-ova okruženja (verzije 44655df i e7df3c9); iz ovog razvojnog okruženja ti hostovi su blokirani.
 
 Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
 

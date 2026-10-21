@@ -28,7 +28,7 @@ nepromijenjen iz produkcije, uključujući pregledane crvene rubove žutih ploha
 - Oglasi: stanje, lokacija, datum provjere i poveznica na izvor; nepotpuni oglasi su „Nije uspoređeno: razlog”.
 
 ## Nije provjereno / ograničenja
-- Stvarni podaci: 3 trgovca provjerena su stvarnim uvozom cijelih datoteka (vidi `docs/izvori.md`); dnevni rad automatizacije na GitHubu još nije pokrenut.
+- Stvarni podaci: 7 trgovaca provjereno je stvarnim uvozom cijelih datoteka (vidi `docs/izvori.md`); dnevni rad automatizacije na GitHubu još nije pokrenut.
 - Prepoznavanje specifikacija i količina testirano je na sintetičkim nazivima; stvarni cjenici će tražiti dorade pravila.
 - Cijena je najniža u trgovini (svim poslovnicama); lokacija poslovnice i dostava nisu uključeni u usporedbu.
 - Glasovni unos ostaje „jedan artikl po pritisku” kao u produkciji (kontinuirano nabrajanje je vraćeno u izvornoj aplikaciji 851a3d2).

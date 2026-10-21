@@ -201,6 +201,18 @@ assert u.obradi([{"id": "v", "naziv": "Veker", "format": "xml"}], lambda i: bez,
 # Neoznačeni href i upit iza nastavka.
 cn = u.cjenici_sa_stranice("<a href=/c/web_Trg_1_X_01_5_21.10.2026_07.00.00.csv?v=2>x</a>", "https://x.invalid/")
 assert [x["url"] for x in cn] == ["https://x.invalid/c/web_Trg_1_X_01_5_21.10.2026_07.00.00.csv"], cn
+# Top Alati: stvarna poveznica s nekodiranim razmacima u navodnicima.
+cs = u.cjenici_sa_stranice('<a href="/user-content/cjenici/2026-10-21/prodavaonica_Optujska ulica 169A-42000-Varaždin_P-W1_57_21-10-2026_07-53.csv" class="x">CSV</a>'
+                           '<a href="/user-content/cjenici/2026-09-27/prodavaonica_Optujska ulica 169A-42000-Varaždin_P-W1_31_27-09-2026_07-50.csv">CSV</a>',
+                           "https://top-alati.hr/prices-list")
+assert [(x["datum"], x["url"]) for x in cs] == [("2026-10-21", "https://top-alati.hr/user-content/cjenici/2026-10-21/"
+         "prodavaonica_Optujska%20ulica%20169A-42000-Vara%C5%BEdin_P-W1_57_21-10-2026_07-53.csv")], cs
+# Datumi iz zaglavlja XML-a: generated (UTC → Zagreb) i datum DD.MM.GGGG.
+assert u.datum_objave("2026-10-20T23:06:04+00:00").isoformat() == "2026-10-21", "UTC late evening is next day in Zagreb"
+assert u.datum_objave("2026-10-21T01:02:06+00:00").isoformat() == "2026-10-21"
+assert u.datum_objave("21.10.2026").isoformat() == "2026-10-21" and u.datum_objave("10.09.2026.").isoformat() == "2026-09-10"
+assert u.datum_iz_xml('<cjenik generated="2026-10-20T23:06:04+00:00"><proizvod/></cjenik>').isoformat() == "2026-10-21"
+assert u.datum_iz_xml('<cjenik datum="21.10.2026"><proizvod/></cjenik>').isoformat() == "2026-10-21"
 # TERMO-METAL Pakrac: datum GGGGMMDD-HHMM u nazivu.
 ctm = u.cjenici_sa_stranice('<a href="https://termo-metal.hr/sidrena/cjenik/internet-trgovina_trg-76-bataljuna-7-34550-pakrac_01_28_20261021-0110.xml">x</a>',
                             "https://termo-metal.hr/home/cjenik/", "xml")

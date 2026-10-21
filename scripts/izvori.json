@@ -37,11 +37,11 @@
       "id": "profi-baucentar",
       "naziv": "Profi baucentar",
       "vrsta": "trgovina",
-      "format": "csv",
-      "url": null,
-      "status": "neprovjereno",
-      "omogucen": false,
-      "napomena": "Ispravna domena profibaucentar.hr (ChatGPT: 200). Strojno čitljiv cjenik još nije pronađen.",
+      "format": "xml",
+      "url": "https://profibaucentar.hr/sidrena-cijena.xml",
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Javni XML pronađen 21.10.2026.; stvarni uvoz (ChatGPT, e7df3c9): 2017 primljeno, 1543 prihvaćeno, 474 nedostupno; datum iz atributa generated.",
       "stranica": "https://profibaucentar.hr/"
     },
     {
@@ -142,9 +142,9 @@
       "stranica": "https://termo-metal.hr/home/cjenik/",
       "popis": true,
       "url": null,
-      "status": "neprovjereno",
-      "omogucen": false,
-      "napomena": "Stranica (ChatGPT: 200) vodi na današnji XML web trgovine s datumom GGGGMMDD-HHMM u nazivu. Struktura XML-a još nije viđena."
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom cijelog XML-a (ChatGPT, e7df3c9): 3381 primljeno, 3115 prihvaćeno, 266 nedostupno; datum iz naziva datoteke."
     },
     {
       "id": "termometal",
@@ -176,9 +176,10 @@
       "format": "xml",
       "stranica": "https://gradjevinska-apoteka.hr/sidrene-cijene/",
       "url": "https://gradjevinska-apoteka.hr/sidrena-cijena.xml",
-      "status": "neprovjereno",
-      "omogucen": false,
-      "napomena": "Službena stranica navodi stalni XML (ChatGPT, 21.10.2026.). Datum mora doći iz zaglavlja XML-a; struktura još nije viđena."
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom stalnog XML-a (ChatGPT, e7df3c9): 292 proizvoda, 289 s cijenom, 286 prihvaćeno, 3 nedostupno; datum iz atributa generated (UTC, pretvoren u zagrebački datum).",
+      "popis": false
     },
     {
       "id": "gradnjainvest",
@@ -196,13 +197,13 @@
       "id": "telack",
       "naziv": "Telack",
       "vrsta": "trgovina",
-      "format": "csv",
+      "format": "xml",
       "stranica": "https://telack.shop/",
-      "popis": true,
-      "url": null,
-      "status": "neprovjereno",
-      "omogucen": false,
-      "napomena": "CSV/XML poveznice u podnožju (ChatGPT, 21.10.2026.). Datoteke još nisu viđene; asortiman treba potvrditi."
+      "popis": false,
+      "url": "https://telack.shop/cjenik/cjenik-webshop.xml",
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom stalnog XML-a (ChatGPT, e7df3c9): 470 primljeno, 470 prihvaćeno; datum iz atributa datum (DD.MM.GGGG)."
     },
     {
       "id": "mirakul",

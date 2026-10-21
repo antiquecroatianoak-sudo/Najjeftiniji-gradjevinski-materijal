@@ -33,6 +33,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 KORIJEN = Path(__file__).resolve().parent.parent
@@ -287,18 +288,27 @@ def citaj_xml(tekst: str, vlastiti: dict | None = None):
         raise ValueError("XML nema zapisa s nazivom i cijenom")
 
 
+ZAGREB = ZoneInfo("Europe/Zagreb")
+
+
 def datum_objave(vrijednost):
+    """ISO datum/vrijeme ili DD.MM.GGGG. Vrijeme sa zonom pretvara se u datum po zagrebačkom vremenu."""
+    tekst = str(vrijednost or "").strip()
+    if m := re.fullmatch(r"(\d{1,2})\.(\d{1,2})\.(\d{4})\.?", tekst):
+        return datetime(int(m.group(3)), int(m.group(2)), int(m.group(1))).date()
     try:
-        return datetime.fromisoformat(str(vrijednost)).date()
+        trenutak = datetime.fromisoformat(tekst.replace("Z", "+00:00"))
     except ValueError:
         return None
+    return (trenutak.astimezone(ZAGREB) if trenutak.tzinfo else trenutak).date()
 
 
-# Zaglavlje XML cjenika: <cjenik generirano="..."> ili <objekt><vremenska_oznaka>. "referentni_datum" je
+# Zaglavlje XML cjenika: atribut generirano / generated / datum ili <objekt><vremenska_oznaka>. "referentni_datum" je
 # datum sidrene cijene, ne datum cjenika.
 def datum_iz_xml(tekst: str):
     korijen = ET.fromstring(tekst.encode("utf-8"))
-    for vrijednost in (korijen.get("generirano"), korijen.findtext("objekt/vremenska_oznaka")):
+    for vrijednost in (korijen.get("generirano"), korijen.get("generated"), korijen.get("datum"),
+                       korijen.findtext("objekt/vremenska_oznaka")):
         if vrijednost and (d := datum_objave(vrijednost.strip())):
             return d
     return None
@@ -475,7 +485,8 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
 # ---------- Stranice s popisom cjenika (NN 101/2026) ----------
 # Naziv datoteke: <vrsta>_<adresa>_<trgovac>_<oznaka>_<DD.MM.GGGG>_<HH.MM.SS[.mmm]>.csv
 # (trgovci pišu i DD-MM-GGGG_HH-MM ili GGGGMMDDTHHMMSS)
-RE_DATOTEKA = re.compile(r"""href\s*=\s*["']?([^"'\s>]+?\.(csv|xml))(?=["'\s>?#])""", re.I)
+# Poveznica u navodnicima smije imati razmake (Top Alati); bez navodnika završava razmakom ili ">".
+RE_DATOTEKA = re.compile(r"""href\s*=\s*(?:"([^"]+?\.(csv|xml))(?:[?#][^"]*)?"|'([^']+?\.(csv|xml))(?:[?#][^']*)?'|([^"'\s>]+?\.(csv|xml))(?=[\s>?#]))""", re.I)
 RE_DATUM_DATOTEKE = re.compile(r"[_-](\d{2})[.-](\d{2})[.-](\d{4})(?:_(\d{2})[.-](\d{2})(?:[.-](\d{2}))?)?[^/]*\.(?:csv|xml)$", re.I)
 RE_DATUM_KOMPAKTNO = re.compile(r"[_-]?(\d{4})(\d{2})(\d{2})[T-](\d{2})(\d{2})(\d{2})?[^/]*\.(?:csv|xml)$", re.I)
 
@@ -486,7 +497,8 @@ def cjenici_sa_stranice(html: str, stranica: str, oblik: str = "csv") -> list[di
     a poslovnica je dio naziva prije datuma. Put se kodira (npr. "Većeslava") jer urllib ne prima Unicode.
     """
     najnoviji: dict[str, dict] = {}
-    for href, nastavak in RE_DATOTEKA.findall(html):
+    for pogodak in RE_DATOTEKA.findall(html):
+        href, nastavak = next((pogodak[i], pogodak[i + 1]) for i in (0, 2, 4) if pogodak[i])
         if nastavak.lower() != oblik:
             continue
         put = urllib.parse.unquote(href.split("?")[0])
