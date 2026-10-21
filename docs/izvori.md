@@ -4,7 +4,8 @@ Uvoze se samo izvori koje je čovjek provjerio i uključio u `scripts/izvori.jso
 (`"status": "provjereno"`, `"omogucen": true`). Uključeno je **7 trgovaca**, svaki provjeren stvarnim uvozom cijele datoteke 21.10.2026.
 Nijedna cijena nije izmišljena.
 
-## Stvarno pokretanje na GitHub Actions (21.10.2026., run 19, grana bez objave)
+## Stvarno pokretanje na GitHub Actions (21.10.2026., run 23, commit 2696c2b, grana bez objave)
+Isti rezultat kao run 19 (a7120f3). Run 22 (df86130): TERMO-METAL je vratio 403 → 7 trgovaca; u produkciji bi se tada koristio zadnji valjani cjenik iz predmemorije (ako nije stariji od 3 dana).
 Otkrivanje i uvoz izvršeni na GitHubovim poslužiteljima (koji, za razliku od razvojnog okruženja, imaju pristup internetu):
 **8 različitih trgovaca, 10 poslovnica/izvora, 34 399 ponuda, svi cjenici od 2026-10-21.**
 
@@ -22,7 +23,11 @@ Otkrivanje i uvoz izvršeni na GitHubovim poslužiteljima (koji, za razliku od r
 Odbačeno uz razlog: Bačelić prodavaonice (4) — „nema dostupnih ponuda“ (svi retci nedostupni); Top Alati stare datoteke od
 27.09.2026. — zastarjele; Akord Županja i Gradnja invest — datoteka nije valjan XML; termometal.hr — prazna datoteka;
 Unikomerc — nepoznat datum cjenika; Pevex, Bauhaus, IKOMA, Vijci, Fero-Term, Petrokov, Mirakul, Građa.hr — cjenik nije
-pronađen ili je pristup odbijen. **Cilj od više od 10 trgovaca još nije postignut (8).**
+pronađen ili je pristup odbijen. Nakon popravka „soft 404“ (run 22+) Akord, Gradnja invest i ERA više nisu greška
+obrade nego „cjenik nije pronađen“: na uobičajenim putanjama vraćaju HTML stranicu, a na naslovnoj nema poveznice na
+CSV/XML. Imenik sidrocjenici.com (119 KB, 69 poveznica, 0 vanjskih, 23 podstranice) dao je 4 nove domene (rif.hr,
+vasatrgovina.hr, primjer.hr, azop.hr) — nijedna nema cjenik; popis trgovaca u imeniku nije dostupan u HTML-u.
+**Cilj od najmanje 11 različitih trgovaca nije postignut (8).**
 
 ## Pravna osnova za trgovine
 - Odluka o objavi cjenika proizvoda i usluga kao mjera izravne kontrole cijena, **NN 101/2026**
