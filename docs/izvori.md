@@ -4,6 +4,26 @@ Uvoze se samo izvori koje je čovjek provjerio i uključio u `scripts/izvori.jso
 (`"status": "provjereno"`, `"omogucen": true`). Uključeno je **7 trgovaca**, svaki provjeren stvarnim uvozom cijele datoteke 21.10.2026.
 Nijedna cijena nije izmišljena.
 
+## Stvarno pokretanje na GitHub Actions (21.10.2026., run 19, grana bez objave)
+Otkrivanje i uvoz izvršeni na GitHubovim poslužiteljima (koji, za razliku od razvojnog okruženja, imaju pristup internetu):
+**8 različitih trgovaca, 10 poslovnica/izvora, 34 399 ponuda, svi cjenici od 2026-10-21.**
+
+| Trgovac | URL (najnovija datoteka) | Primljeno | Prihvaćeno | Nedostupno |
+|---|---|---|---|---|
+| Bačelić (web trgovina, otkriveno automatski) | bacelic.hr/cjenici/internet-trgovina_…_21.10.2026_07.46.50.266.csv | 55 703 | 46 967 | 8 735 |
+| Top Alati (3 poslovnice) | top-alati.hr/user-content/cjenici/2026-10-21/… (Čakovec, Varaždin, Prelog) | 3 × 16 834 | 2 574 / 2 605 / 9 347 | 14 260 / 14 229 / 7 487 |
+| Veker | veker.hr/wp-content/uploads/cjenici-webshop/cjenik.xml | 3 791 | 3 712 | 79 |
+| TERMO-METAL (Pakrac) | termo-metal.hr/sidrena/cjenik/…_20261021-0110.xml | 3 381 | 3 115 | 266 |
+| Gavroprom | gavroprom.hr/cjenici/…_21.10.2026_07.45.09.153.csv | 3 633 | 2 129 | 1 504 |
+| Profi baucentar | profibaucentar.hr/sidrena-cijena.xml | 2 017 | 1 543 | 474 |
+| Telack | telack.shop/cjenik/cjenik-webshop.xml | 470 | 470 | 0 |
+| Građevinska apoteka | gradjevinska-apoteka.hr/sidrena-cijena.xml | 289 | 286 | 3 |
+
+Odbačeno uz razlog: Bačelić prodavaonice (4) — „nema dostupnih ponuda“ (svi retci nedostupni); Top Alati stare datoteke od
+27.09.2026. — zastarjele; Akord Županja i Gradnja invest — datoteka nije valjan XML; termometal.hr — prazna datoteka;
+Unikomerc — nepoznat datum cjenika; Pevex, Bauhaus, IKOMA, Vijci, Fero-Term, Petrokov, Mirakul, Građa.hr — cjenik nije
+pronađen ili je pristup odbijen. **Cilj od više od 10 trgovaca još nije postignut (8).**
+
 ## Pravna osnova za trgovine
 - Odluka o objavi cjenika proizvoda i usluga kao mjera izravne kontrole cijena, **NN 101/2026**
   (11.9.2026.), izmjena **NN 110/2026**: obveza vrijedi od **17.11.2026.** za sve trgovce na malo s mrežnom stranicom
