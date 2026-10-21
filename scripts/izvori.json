@@ -50,7 +50,7 @@
       "url": null,
       "status": "neprovjereno",
       "omogucen": false,
-      "napomena": "Javni CSV/XML cjenici po poslovnici (prema provjeri ChatGPT-a 21.10.2026., zadnji web shop 06.10.2026.). Iz razvojnog okruženja host je blokiran (403); datoteke nisu preuzete ni provjerene."
+      "napomena": "Stranica bacelic.hr/cjenik navodi CSV/XML, ali je i ChatGPT-ov dohvat dobio 403 (21.10.2026.); pristup se ne zaobilazi."
     },
     {
       "id": "gavroprom",
@@ -61,7 +61,8 @@
       "url": null,
       "status": "neprovjereno",
       "omogucen": false,
-      "napomena": "Javni CSV/XML cjenici (prema provjeri ChatGPT-a 21.10.2026., zadnji 16.10.2026.). Iz razvojnog okruženja host je blokiran (403); datoteke nisu preuzete ni provjerene."
+      "napomena": "Popis CSV/XML cjenika po poslovnici; čitač uzima najnoviji CSV svake poslovnice i datum iz naziva datoteke. ChatGPT je 21.10.2026. dohvatio stranicu (200) i datoteku od 21.10.2026.; iz ovog okruženja host je blokiran (403). Ostaje neprovjereno dok se stvarni stupci ne provjere uvozom.",
+      "popis": true
     },
     {
       "id": "njuskalo",

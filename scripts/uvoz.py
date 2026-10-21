@@ -29,6 +29,7 @@ import math
 import re
 import sys
 import unicodedata
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
@@ -160,10 +161,17 @@ SPEC = [
     (re.compile(r"\b(eps)\s*-?\s*(\d{2,3}|f|t)\b", re.I), lambda m: f"EPS {m.group(2).upper()}"),
     (re.compile(r"\bxps\b", re.I), lambda m: "XPS"),
     (re.compile(r"\bcem\s*(i{1,3}|iv|v)(?:\s*/\s*([ab]))?\b", re.I), lambda m: "CEM " + m.group(1).upper() + (f"/{m.group(2).upper()}" if m.group(2) else "")),
-    (re.compile(r"\b(c[12])\s*(t?e?s?[12]?)\b", re.I), lambda m: (m.group(1) + m.group(2)).upper()),
+    # Razred čvrstoće cementa: 32,5 R i 42,5 N nisu isti proizvod.
+    (re.compile(r"(?<![\d.,])(32|42|52)[.,]5\s*([rnl])?(?![a-z0-9])", re.I),
+     lambda m: f"{m.group(1)},5" + (f" {m.group(2).upper()}" if m.group(2) else "")),
+    # Ljepila za pločice (HRN EN 12004): C2TE S1 i C2TE S2 razlikuju se po deformabilnosti.
+    (re.compile(r"\b(c[12])\s*(t)?\s*(e)?(?:\s*(s[12]))?(?![a-z0-9])", re.I),
+     lambda m: (m.group(1) + (m.group(2) or "") + (m.group(3) or "")).upper() + (f" {m.group(4).upper()}" if m.group(4) else "")),
     (re.compile(r"\bc(\d{2})/(\d{2})\b", re.I), lambda m: f"C{m.group(1)}/{m.group(2)}"),
     (re.compile(r"(?:ø|fi|φ|dn)\s*(\d+(?:[.,]\d+)?)", re.I), lambda m: f"Ø{m.group(1).replace('.', ',')}"),
 ]
+# Frakcija agregata: "pijesak 0-4 mm" i "4-8 mm" nisu usporedivi.
+RE_FRAKCIJA = re.compile(r"(?<![\d.,])(\d+(?:[.,]\d+)?)\s*[-–/]\s*(\d+(?:[.,]\d+)?)\s*mm(?![a-z0-9])", re.I)
 RE_DEBLJINA = re.compile(r"(?<![x×\d.,])(\d+(?:[.,]\d+)?)\s*(mm|cm)(?![a-z0-9])(?!\s*[x×])", re.I)
 
 
@@ -173,8 +181,10 @@ def specifikacija(naziv: str, jedinica: str) -> str:
     for regex, oblik in SPEC:
         if m := regex.search(naziv or ""):
             oznake.append(oblik(m))
+    if m := RE_FRAKCIJA.search(naziv or ""):
+        oznake.append(f"frakcija {m.group(1)}-{m.group(2)} mm".replace(".", ","))
     if jedinica in ("m", "m2", "m3", "kom"):
-        bez_dimenzija = RE_DIMENZIJE.sub(lambda m: " ", naziv or "")
+        bez_dimenzija = RE_DIMENZIJE.sub(lambda m: " ", RE_FRAKCIJA.sub(" ", naziv or ""))
         if m := RE_DEBLJINA.search(bez_dimenzija):
             mm = (u_broj(m.group(1)) or 0) * (10 if m.group(2).lower() == "cm" else 1)
             if mm and not any(o.startswith("Ø") for o in oznake):
@@ -307,6 +317,11 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
     datumi = []
     for izvor in izvori:
         zapis_stanja = {"id": izvor["id"], "naziv": izvor["naziv"], "vrsta": izvor.get("vrsta", "trgovina")}
+        if izvor.get("greska_stranice"):
+            stanje.append({**zapis_stanja, "uspjeh": False, "greska": izvor["greska_stranice"]})
+            continue
+        if izvor.get("url"):
+            zapis_stanja["url"] = izvor["url"]
         # Datum objave cjenika navodi izvor (npr. s popisa datoteka), ne vrijeme preuzimanja.
         if izvor.get("format") != "oglasi-json":
             try:
@@ -413,8 +428,61 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
             "lanci": lanci, "vrsteIzvora": vrste, "proizvodi": proizvodi}, stanje
 
 
-def preuzmi(izvor: dict) -> bytes:
-    zahtjev = urllib.request.Request(izvor["url"], headers={"User-Agent": "najjeftiniji-gradjevinski-materijal/1 (javni cjenik)"})
+# ---------- Stranice s popisom cjenika (NN 101/2026) ----------
+# Naziv datoteke: <vrsta>_<adresa>_<trgovac>_<oznaka>_<DD.MM.GGGG>_<HH.MM.SS[.mmm]>.csv
+RE_DATOTEKA = re.compile(r"""href\s*=\s*["']([^"']+?\.(csv|xml))["']""", re.I)
+RE_DATUM_DATOTEKE = re.compile(r"_(\d{2})\.(\d{2})\.(\d{4})(?:_(\d{2})\.(\d{2})\.(\d{2}))?[^/]*\.(?:csv|xml)$", re.I)
+
+
+def cjenici_sa_stranice(html: str, stranica: str, oblik: str = "csv") -> list[dict]:
+    """
+    Najnoviji cjenik svake poslovnice s popisa datoteka. Datum je iz naziva datoteke (datum objave),
+    a poslovnica je dio naziva prije datuma. Put se kodira (npr. "Većeslava") jer urllib ne prima Unicode.
+    """
+    najnoviji: dict[str, dict] = {}
+    for href, nastavak in RE_DATOTEKA.findall(html):
+        if nastavak.lower() != oblik:
+            continue
+        put = urllib.parse.unquote(href.split("?")[0])
+        ime = put.rsplit("/", 1)[-1]
+        m = RE_DATUM_DATOTEKE.search(ime)
+        if not m:
+            continue
+        d, mj, g, h, mi, se = m.groups()
+        vrijeme = datetime(int(g), int(mj), int(d), int(h or 0), int(mi or 0), int(se or 0))
+        poslovnica = ime[: m.start()]
+        apsolutno = urllib.parse.urljoin(stranica, put)
+        dijelovi = urllib.parse.urlsplit(apsolutno)
+        url = urllib.parse.urlunsplit(dijelovi._replace(path=urllib.parse.quote(dijelovi.path, safe="/%._-~")))
+        if poslovnica not in najnoviji or vrijeme > najnoviji[poslovnica]["vrijeme"]:
+            najnoviji[poslovnica] = {"poslovnica": poslovnica, "url": url, "vrijeme": vrijeme, "datum": vrijeme.date().isoformat()}
+    return sorted(najnoviji.values(), key=lambda x: x["poslovnica"])
+
+
+def razlozi_izvore(izvori: list[dict], dohvati) -> list[dict]:
+    """Izvor sa "stranica" + "popis": true postaje jedan izvor po poslovnici, s datumom iz naziva datoteke."""
+    rezultat = []
+    for izvor in izvori:
+        if not izvor.get("popis"):
+            rezultat.append(izvor)
+            continue
+        try:
+            html = dekodiraj(dohvati(izvor["stranica"]))
+        except Exception as e:  # noqa: BLE001 - nedostupna stranica bilježi se kao neuspjeli izvor
+            rezultat.append({**izvor, "popis": False, "greska_stranice": f"popis cjenika nedostupan: {e}"[:300]})
+            continue
+        filtar = [normaliziraj(f) for f in izvor.get("poslovnice", [])]
+        for c in cjenici_sa_stranice(html, izvor["stranica"], izvor.get("format", "csv")):
+            ime = c["poslovnica"].replace("_", " ").strip()
+            if filtar and not any(f in normaliziraj(ime) for f in filtar):
+                continue
+            rezultat.append({**izvor, "id": f"{izvor['id']}:{c['poslovnica']}", "naziv": f"{izvor['naziv']} · {ime}",
+                             "url": c["url"], "datum": c["datum"], "popis": False})
+    return rezultat
+
+
+def preuzmi_url(url: str) -> bytes:
+    zahtjev = urllib.request.Request(url, headers={"User-Agent": "najjeftiniji-gradjevinski-materijal/1 (javni cjenik)"})
     with urllib.request.urlopen(zahtjev, timeout=120) as r:
         return r.read()
 
@@ -432,10 +500,11 @@ def main():
             if i["id"] == izvor_id:
                 i["datum"] = datum
     aktivni = [i for i in svi_izvori if i.get("omogucen") and i.get("status") == "provjereno"]
-    ucitaj = lambda izvor: Path(lokalno[izvor["id"]]).read_bytes() if izvor["id"] in lokalno else preuzmi(izvor)
-    podaci, stanje = obradi(aktivni, ucitaj)
     preskoceni = [{"id": i["id"], "naziv": i["naziv"], "vrsta": i.get("vrsta", "trgovina"), "status": i.get("status"),
                    "napomena": i.get("napomena", "")} for i in svi_izvori if i not in aktivni]
+    ucitaj = lambda izvor: Path(lokalno[izvor["id"]]).read_bytes() if izvor["id"] in lokalno else preuzmi_url(izvor["url"])
+    dohvati_stranicu = lambda url: next((Path(v).read_bytes() for k, v in lokalno.items() if k == url), None) or preuzmi_url(url)
+    podaci, stanje = obradi(razlozi_izvore(aktivni, dohvati_stranicu), ucitaj)
     STANJE.parent.mkdir(parents=True, exist_ok=True)
     STANJE.write_text(json.dumps({"azurirano": datetime.now(timezone.utc).isoformat(timespec="minutes"),
                                   "uvezeno": stanje, "nije-uvezeno": preskoceni}, ensure_ascii=False, indent=1), encoding="utf-8")

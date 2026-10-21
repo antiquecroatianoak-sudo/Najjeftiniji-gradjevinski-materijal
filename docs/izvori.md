@@ -29,8 +29,8 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 | Pevex | trgovina | neprovjereno | pevex.hr prikazuje „Cijena na 10.9.2026.” (sidrena cijena), stranica s CSV/XML cjenikom nije pronađena. |
 | IKOMA | trgovina | neprovjereno | HTML katalog s cijenama (ikoma.hr); strojno čitljiv cjenik nije pronađen. |
 | Profi baucentar | trgovina | neprovjereno | Web trgovina (profibaucentar.hr); strojno čitljiv cjenik nije pronađen. |
-| Bačelić | trgovina | neprovjereno | Stranica bacelic.hr/cjenik navodi CSV/XML po poslovnici (ChatGPT, 21.10.2026.; zadnji web shop 06.10.2026. — bio bi zastario). Iz ovog okruženja host blokiran (403), datoteke nisu provjerene. |
-| Gavroprom | trgovina | neprovjereno | Stranica gavroprom.hr/cjenik navodi CSV/XML (ChatGPT, 21.10.2026.; zadnji 16.10.2026. — bio bi zastario). Iz ovog okruženja host blokiran (403), datoteke nisu provjerene. |
+| Bačelić | trgovina | blokirano | bacelic.hr/cjenik navodi CSV/XML; dohvat vraća 403 i ChatGPT-u i ovom okruženju (21.10.2026.). Pristup se ne zaobilazi. |
+| Gavroprom | trgovina | neprovjereno | gavroprom.hr/cjenik: ChatGPT je 21.10.2026. dohvatio stranicu (200) i noviji CSV web trgovine od 21.10.2026. Čitač `popis` uzima najnoviji CSV po poslovnici, datum iz naziva datoteke i kodira Unicode u putu. Iz ovog okruženja host blokiran (403); stvarni stupci još nisu provjereni uvozom. |
 | Njuškalo | oglasnik | blokirano | Službeni API nije pronađen; postoje samo komercijalni scraperi trećih strana. Automatsko prikupljanje bez dopuštenja se ne radi. |
 | Index Oglasi | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Plavi oglasnik | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
@@ -43,6 +43,10 @@ Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
 1. Otvoriti stranicu „Objava cjenika” trgovca, preuzeti CSV/XML web trgovine ili poslovnice i provjeriti stupce.
 2. U `scripts/izvori.json` upisati `url`, `format`, po potrebi `"stupci"`, zatim `"status": "provjereno"`, `"omogucen": true`.
 3. Lokalno: `python scripts/uvoz.py --lokalno id=datoteka.csv --datum id=GGGG-MM-DD` i pregledati `site/data/stanje-izvora.json`.
+
+Izvor sa `"popis": true` i `"stranica"` čita stranicu s popisom datoteka (oblik naziva prema NN 101/2026:
+`<vrsta>_<adresa>_<trgovac>_<oznaka>_<DD.MM.GGGG>_<HH.MM.SS>.csv`) i za svaku poslovnicu uzima najnoviju datoteku;
+svaka poslovnica je zaseban izvor jer su cijene po poslovnici. `"poslovnice"` po potrebi ograničava na npr. web trgovinu.
 
 Datum cjenika je datum objave koji navodi izvor, nikad vrijeme preuzimanja. Cjenik bez datuma ili stariji od 3 dana ne uvozi se
 (`stanje-izvora.json` navodi razlog), a datum u aplikaciji je najstariji uključeni cjenik. Isti barkod s različitom

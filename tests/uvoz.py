@@ -28,7 +28,20 @@ assert u.specifikacija("Cement CEM II/B 25 kg", "kg") == "CEM II/B"
 assert u.specifikacija("Ljepilo za pločice C2TE S1 25 kg", "kg").startswith("C2TE")
 assert u.specifikacija("PVC cijev Ø110 2 m", "kom") == "Ø110"
 assert u.specifikacija("Pločica 60x60 cm", "m2") == "60x60cm"
-assert u.specifikacija("Pijesak 0-4 mm", "kg") == "", "kg goods have no thickness spec"
+# Neusporedivi razredi i frakcije (pregled #1): svaki par mora dati različite specifikacije.
+parovi = [("Cement CEM II/B 32,5 R 25 kg", "Cement CEM II/B 42,5 R 25 kg", "kg"),
+          ("Cement CEM II/B 42,5 N 25 kg", "Cement CEM II/B 42,5 R 25 kg", "kg"),
+          ("Ljepilo za pločice C2TE S1 25 kg", "Ljepilo za pločice C2TE S2 25 kg", "kg"),
+          ("Ljepilo za pločice C1 25 kg", "Ljepilo za pločice C2TE 25 kg", "kg"),
+          ("Pijesak 0-4 mm", "Pijesak 4-8 mm", "kg"), ("Šljunak 8/16 mm", "Šljunak 16/32 mm", "kg"),
+          ("Pijesak 0-4 mm", "Pijesak", "kg")]
+for a1, b1, jed in parovi:
+    assert u.specifikacija(a1, jed) != u.specifikacija(b1, jed), (a1, b1, u.specifikacija(a1, jed))
+assert u.specifikacija("Cement CEM II/B 32,5 R 25 kg", "kg") == "CEM II/B · 32,5 R"
+assert u.specifikacija("Ljepilo za pločice C2TE S1 25 kg", "kg") == "C2TE S1"
+assert u.specifikacija("Pijesak 0-4 mm", "kg") == "frakcija 0-4 mm"
+assert u.specifikacija("Pijesak 0-4 mm", "m3") == "frakcija 0-4 mm", "grain size is not a thickness"
+assert u.specifikacija("Cement 25 kg", "kg") == "", "no spec invented"
 
 CSV = """Naziv proizvoda;Šifra proizvoda;Marka proizvoda;Neto količina;Jedinica mjere;MPC;Cijena za jedinicu mjere;Posebna cijena;Barkod
 Cement CEM II/B 25 kg;100;Našicecement;25;kg;8,50;0,34;;3850000000001
@@ -110,6 +123,25 @@ p4, st4 = u.obradi([{"id": "s", "naziv": "S", "format": "csv", "datum": "2026-10
                     {"id": "n", "naziv": "N", "format": "csv"}], lambda i: CSV_A, sada)
 assert p4 is None
 assert [x["greska"] for x in st4] == ["zastario cjenik od 2026-10-06", "nepoznat datum cjenika"]
+# Popis cjenika na stranici: najnoviji CSV po poslovnici, datum iz naziva, Unicode put kodiran.
+HTML = """<a href="/cjenici/internet-trgovina_Av._Većeslava_Holjevca_42b_Gavroprom_12_21.10.2026_07.45.09.153.csv">CSV</a>
+<a href="/cjenici/internet-trgovina_Av._Većeslava_Holjevca_42b_Gavroprom_12_20.10.2026_07.40.00.001.csv">CSV</a>
+<a href="/cjenici/internet-trgovina_Av._Većeslava_Holjevca_42b_Gavroprom_12_21.10.2026_07.45.09.153.xml">XML</a>
+<a href='https://www.primjer.invalid/cjenici/poslovnica_Ilica_1_Gavroprom_3_16.10.2026_07.00.00.csv'>stari</a>
+<a href="/o-nama">O nama</a>"""
+c = u.cjenici_sa_stranice(HTML, "https://www.primjer.invalid/cjenik")
+assert [x["poslovnica"] for x in c] == ["internet-trgovina_Av._Većeslava_Holjevca_42b_Gavroprom_12", "poslovnica_Ilica_1_Gavroprom_3"]
+assert c[0]["datum"] == "2026-10-21" and c[1]["datum"] == "2026-10-16"
+assert c[0]["url"] == ("https://www.primjer.invalid/cjenici/internet-trgovina_Av._Ve%C4%87eslava_Holjevca_42b_"
+                       "Gavroprom_12_21.10.2026_07.45.09.153.csv"), c[0]["url"]
+c[0]["url"].encode("ascii")
+razl = u.razlozi_izvore([{"id": "g", "naziv": "G", "format": "csv", "stranica": "https://www.primjer.invalid/cjenik",
+                          "popis": True, "poslovnice": ["internet trgovina"]}], lambda url: HTML.encode())
+assert [(x["naziv"], x["datum"]) for x in razl] == [("G · internet-trgovina Av. Većeslava Holjevca 42b Gavroprom 12", "2026-10-21")]
+pala = u.razlozi_izvore([{"id": "g", "naziv": "G", "stranica": "https://x.invalid/", "popis": True}],
+                        lambda url: (_ for _ in ()).throw(OSError("403")))
+_, st5 = u.obradi(pala, lambda i: b"", sada)
+assert st5[0]["uspjeh"] is False and "popis cjenika nedostupan" in st5[0]["greska"]
 # Bez izvora nema objave
 assert u.obradi([], lambda i: b"", sada)[0] is None
 print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source")
