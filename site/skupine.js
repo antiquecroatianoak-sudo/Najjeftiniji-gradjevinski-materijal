@@ -219,7 +219,8 @@ rukavice|Radne rukavice|radne rukavice;rukavice`;
   }
   // Svi istovrijedni nazivi; glasovni unos njima razdvaja nabrajanje bez zareza.
   const poznatiNazivi = zapis.split("\n").flatMap((r) => r.split("|")[2].split(";"));
-  const api = { pripremi, analiziraj, poznatiNazivi, definicije: vrste.map(({id,naziv}) => ({id,naziv})) };
+  const api = { pripremi, analiziraj, poznatiNazivi, definicije: vrste.map(({id,naziv}) => ({id,naziv})),
+    nazivi: Object.fromEntries(zapis.split("\n").map((r) => [r.split("|")[0], r.split("|")[2].split(";")])) };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Skupine = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

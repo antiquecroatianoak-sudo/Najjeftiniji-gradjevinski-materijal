@@ -73,6 +73,11 @@ jobs:
         if: steps.uvoz.outputs.ima == 'da'
         run: node scripts/razvrstaj.cjs
 
+      - name: Revizija klasifikacije i pretrage
+        if: steps.uvoz.outputs.ima == 'da'
+        continue-on-error: true
+        run: node scripts/revizija.cjs
+
       - uses: actions/configure-pages@v5
         if: steps.uvoz.outputs.ima == 'da'
 
@@ -127,6 +132,9 @@ jobs:
               d = json.loads(p.read_text())
               print(f"Ponuda: {len(d['proizvodi'])}, izvora: {len(d['lanci'])}, datum: {d['datum']}")
           PY
+      - name: Revizija klasifikacije i pretrage na stvarnom cjeniku
+        continue-on-error: true
+        run: node scripts/revizija.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -135,4 +143,5 @@ jobs:
             site/data/stanje-izvora.json
             site/data/otkriveni.json
             site/data/njuskalo-kategorije.json
+            site/data/revizija.json
           if-no-files-found: ignore

@@ -29,6 +29,45 @@ CSV/XML. Imenik sidrocjenici.com (119 KB, 69 poveznica, 0 vanjskih, 23 podstrani
 vasatrgovina.hr, primjer.hr, azop.hr) — nijedna nema cjenik; popis trgovaca u imeniku nije dostupan u HTML-u.
 **Cilj od najmanje 11 različitih trgovaca nije postignut (8).**
 
+## Izvještaj po trgovcu — run 27 (commit 56333cb, 21.10.2026., grana bez objave)
+https://github.com/antiquecroatianoak-sudo/Najjeftiniji-gradjevinski-materijal/actions/runs/39593507440 —
+**9 različitih trgovaca, 11 izvora, 35 794 ponuda**, svi cjenici od 2026-10-21. Cijene su u EUR s PDV-om (maloprodajne,
+NN 101/2026). Jedinica, pakiranje i specifikacija dolaze iz cjenika i naziva.
+
+| Trgovac | Službeni URL | Status | Dokaz / razlog | Prihvaćeno |
+|---|---|---|---|---|
+| ARKOR (Imotski) | arkor.hr | **aktivan (otkriveno)** | arkor.hr/sidrena/cjenik/internet-trgovina_…_20261021-0010.xml | 1 408 |
+| Bačelić, Top Alati, Veker, TERMO-METAL, Gavroprom, Profi baucentar, Telack, Građevinska apoteka | vidi gore | **aktivan** | stvarni dohvat 21.10.2026. | 34 386 |
+| IKOMA | ikoma.hr | kandidat | cijene samo na HTML stranicama webshopa, nema CSV/XML | — |
+| Fero-Term | fero-term.hr | kandidat | isto (HTML webshop) | — |
+| Petrokov | petrokov.hr | kandidat | isto | — |
+| Akord Županja | akord-zupanja.hr | kandidat | isto | — |
+| ERA-COMMERCE | era-commerce.hr | kandidat | identitet potvrđen (OIB 28609792467); HTML webshop, nema CSV/XML | — |
+| Građa.hr | gradja.hr | kandidat | HTML webshop | — |
+| Frida Mijić | frida-mijic.hr | kandidat | HTML webshop | — |
+| Consortium | consortium.hr | kandidat | HTML webshop | — |
+| Merkury | merkury.hr | kandidat | HTML webshop (/mort/, /zbuka/ su kategorije istog trgovca) | — |
+| MC PLUS | mc-plus.hr | kandidat | HTML webshop | — |
+| Bit Promet | bitpromet.hr | kandidat | cjenik nije pronađen | — |
+| Drvona | drvona.hr | kandidat | cjenik nije pronađen | — |
+| Gradnja invest | katalog.gradnjainvest.hr | kandidat | cjenik nije pronađen | — |
+| Unikomerc | unikomerc-uvoz.hr | kandidat | datoteka bez datuma objave | — |
+| Termometal (Garešnica) | termometal.hr | kandidat | prazna XML datoteka | — |
+| Pevex | pevex.hr | blokiran | 403 na naslovnoj | — |
+| Bauhaus | bauhaus.hr | blokiran | 403 | — |
+| Mirakul | mirakul-inovativna-grijanja.hr | blokiran | 403 | — |
+| Vijci | vijci.com | blokiran | TLS certifikat se ne može provjeriti (provjera se ne isključuje) | — |
+
+Imenici (samo otkrivanje, ne izvor cijena): sidrocjenici.com → 4 domene, nijedan trgovac; ecroatia.info (Zagreb,
+građevinski materijali; 543 poveznice, 60 podstranica) → 3 vanjske domene, sve nevezane (agencija, portal);
+gradim.hr → bez vanjskih trgovaca. Kalcer, Altum i Gratis nisu pronađeni kao vanjske poveznice ni domene u imeniku,
+pa nisu provjereni (domena se ne nagađa). Google pretraga se ne dohvaća automatski (uvjeti korištenja); kandidati iz nje
+dodani su ručno u `domene.json`.
+
+**Webshopovi bez CSV/XML**: 10 trgovaca ima cijene samo na HTML stranicama. Uvoz cijena s HTML stranica (npr. strukturirani
+podaci schema.org/Product) nije uveden jer mijenja dosadašnje pravilo „samo službeni strojno čitljivi cjenici“; čeka
+odluku. Obveza objave CSV/XML za sve trgovce počinje 17.11.2026.
+
 ## Pravna osnova za trgovine
 - Odluka o objavi cjenika proizvoda i usluga kao mjera izravne kontrole cijena, **NN 101/2026**
   (11.9.2026.), izmjena **NN 110/2026**: obveza vrijedi od **17.11.2026.** za sve trgovce na malo s mrežnom stranicom

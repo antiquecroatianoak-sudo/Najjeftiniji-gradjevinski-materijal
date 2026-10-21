@@ -36,7 +36,7 @@ POZNATE_PUTANJE = ["/cjenik/", "/cjenik", "/cjenici/", "/sidrene-cijene/", "/sid
 RE_POVEZNICA = re.compile(r"""href\s*=\s*(?:"([^"]+)"|'([^']+)'|([^"'\s>]+))""", re.I)
 RE_STRANICA_CJENIKA = re.compile(r"cjeni|sidren|prices?-list|price-list", re.I)
 RE_TEKST_CJENIKA = re.compile(r"cjeni|sidren|objava cijena|popis cijena|price list", re.I)
-RE_DOMENA_U_TEKSTU = re.compile(r"(?<![\w@.-])(?:https?:\\?/\\?/)?(?:www\.)?((?:[a-z0-9-]+\.)+hr)(?![\w-])", re.I)
+RE_DOMENA_U_TEKSTU = re.compile(r"(?<![\w@.%-])(?<!%2f)(?<!%2F)(?:https?:\\?/\\?/)?(?:www\.)?((?:[a-z0-9-]+\.)+hr)(?![\w-])", re.I)
 RE_WEBSHOP = re.compile(r'itemprop=["\']price|"@type"\s*:\s*"Product"|woocommerce|add-to-cart|dodaj u košaricu|u košaricu', re.I)
 RE_NIJE_CJENIK = re.compile(r"sitemap|feed|rss|wp-json|oembed", re.I)
 # Kandidat mora imati barem toliko valjanih ponuda da bi se smatrao pravim cjenikom.
