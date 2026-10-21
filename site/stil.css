@@ -90,3 +90,5 @@ input::placeholder{color:#5f6b78}
 .trgovina-red .iznos small{font-size:13px;font-weight:600;color:var(--muted);text-align:right}
 @media(max-width:700px){.jedna-trgovina{padding:14px 12px}}
 .trgovina-red:not(.nepotpun) .iznos{white-space:nowrap;max-width:none;min-width:0}
+.trgovina-red .lijevo{flex:1 1 auto;min-width:0}.trgovina-red .iznos{flex:0 0 auto}
+@media(max-width:360px){.trgovina-red:not(.nepotpun) .iznos{font-size:18px}}
