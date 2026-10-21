@@ -51,7 +51,7 @@ require("vm").runInContext(`
   if (vidjeno.size !== n || stanje.odabir.cement !== 0) throw new Error("listanje ne obilazi sve ponude");
   promijeni("cement", -1); if (stanje.odabir.cement !== n - 1) throw new Error("natrag s prve ide na zadnju");
 `, app);
-// Sve u jednom dućanu: više od 8 trgovina → prvih 8 i gumb za sve; nakon klika sve.
+// Sve u jednom dućanu: svih 12 trgovina vidljivo odmah, bez dodatnog klika i bez ograničenja na 8.
 require("vm").runInContext(`
   const cvor = () => ({ children: [], hidden: false, textContent: "", className: "", set innerHTML(v) { this.children = []; },
     appendChild(c) { this.children.push(c); }, append(...c) { this.children.push(...c); }, setAttribute() {} });
@@ -60,15 +60,11 @@ require("vm").runInContext(`
   document.createElement = () => cvor();
   stanje.popis = [{ naziv: "cement", kom: 1 }];
   stanje.jedna = null; stanje.iskljuceni = []; ponudeCache.clear();
-  stanje.odabir = {}; stanje.odabirSvi = {}; globalThis.__prvi = prikaziJednuTrgovinu();
-  globalThis.__gumb = cvorovi["trgovine-usporedba"].children.at(-1).children[0];
+  stanje.odabir = {}; stanje.odabirSvi = {};
+  globalThis.__rez = prikaziJednuTrgovinu();
+  globalThis.__redova = cvorovi["trgovine-usporedba"].children.length;
 `, app);
-assert.equal(app.__prvi.ukupno, 12, "every store with the item is listed");
-assert.equal(app.__prvi.prikazano, 8);
-{
-  assert.match(app.__gumb.textContent, /Prikaži sve trgovine/);
-  app.__gumb.onclick();
-  assert.equal(require("vm").runInContext("prikaziJednuTrgovinu()", app).prikazano, app.__prvi.ukupno, "all stores after the click");
-}
+assert.equal(app.__rez.potpune.length, 12, "every store with the item is listed");
+assert.equal(app.__redova, 12, "all rows rendered immediately");
 console.log(`FILTER PASS: ${Object.keys(ocekivano).length} queries × ${kombinacije.length} store filters, cheapest allowed store, ` +
-  `unclassified reachable and unranked, offer paging wraps, store list beyond 8 (${app.__prvi.ukupno} stores)`);
+  `unclassified reachable and unranked, offer paging wraps, all ${app.__redova} stores listed at once`);

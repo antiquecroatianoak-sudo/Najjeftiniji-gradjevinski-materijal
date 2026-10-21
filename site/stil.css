@@ -77,3 +77,16 @@ input::placeholder{color:#5f6b78}
 :focus-visible{outline:3px solid var(--naglasak);outline-offset:3px}
 @media(max-width:700px){.zaglavlje{margin-bottom:16px}.mali-naslov{font-size:13px}.grupa{font-size:22px}.podaci-ponude{grid-template-columns:1fr 1fr;padding:10px}.podaci-ponude dd{font-size:16px}.cijena{font-size:27px}}
 @media(max-width:360px){.podaci-ponude{grid-template-columns:1fr}}
+/* Sve u jednom dućanu: odmah vidljivo uz glavni rezultat; najpovoljniji potpuni lanac zelenom bojom, oznakom i tekstom. */
+.jedna-trgovina{margin-top:18px;padding:18px 20px}
+.jedna-trgovina h2{font-size:21px;margin-bottom:8px}
+.kombinacija{font-weight:700;color:var(--navy);margin-bottom:6px}
+.nepotpune-naslov{font-size:17px;color:var(--muted);margin:6px 0 0}
+.trgovina-red.najpovoljniji{background:#e6f3ec;border:2px solid #1f6f4a}
+.trgovina-red.najpovoljniji .iznos{color:#185c3c}
+.znacka{display:inline-block;align-self:flex-start;background:#1f6f4a;color:#fff;font-size:14px;font-weight:800;padding:3px 9px;border-radius:6px;letter-spacing:.2px}
+.trgovina-red.nepotpun{background:#f6f7f9;border-style:dashed}
+.trgovina-red.nepotpun .iznos{color:var(--muted);font-size:18px;display:flex;flex-direction:column;align-items:flex-end}
+.trgovina-red .iznos small{font-size:13px;font-weight:600;color:var(--muted);text-align:right}
+@media(max-width:700px){.jedna-trgovina{padding:14px 12px}}
+.trgovina-red:not(.nepotpun) .iznos{white-space:nowrap;max-width:none;min-width:0}
