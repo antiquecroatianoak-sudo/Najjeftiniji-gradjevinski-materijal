@@ -36,6 +36,7 @@ POZNATE_PUTANJE = ["/cjenik/", "/cjenik", "/cjenici/", "/sidrene-cijene/", "/sid
 RE_POVEZNICA = re.compile(r"""href\s*=\s*(?:"([^"]+)"|'([^']+)'|([^"'\s>]+))""", re.I)
 RE_STRANICA_CJENIKA = re.compile(r"cjeni|sidren|prices?-list|price-list", re.I)
 RE_TEKST_CJENIKA = re.compile(r"cjeni|sidren|objava cijena|popis cijena|price list", re.I)
+RE_DOMENA_U_TEKSTU = re.compile(r"(?<![\w@.-])(?:https?:\\?/\\?/)?(?:www\.)?((?:[a-z0-9-]+\.)+hr)(?![\w-])", re.I)
 RE_NIJE_CJENIK = re.compile(r"sitemap|feed|rss|wp-json|oembed", re.I)
 # Kandidat mora imati barem toliko valjanih ponuda da bi se smatrao pravim cjenikom.
 NAJMANJE_PONUDA = 20
@@ -49,7 +50,7 @@ GRADJEVINSKI_POJMOVI = re.compile(r"\b(cement|beton|zbuk|malter|mort|ljepil|fug|
 NIJE_TRGOVAC = re.compile(r"(facebook|instagram|twitter|x\.com|youtube|linkedin|google|apple|microsoft|wordpress|wikipedia|"
                           r"github|narodne-novine|gov\.hr|zakon\.hr|tiktok|pinterest|whatsapp|viber)", re.I)
 # Najviše novih domena iz imenika po pokretanju (ostale dolaze sljedećih dana).
-NAJVISE_NOVIH = 150
+NAJVISE_NOVIH = 80
 NAJVISE_STRANICA_IMENIKA = 60
 
 
@@ -185,11 +186,14 @@ def domene_iz_imenika(url: str, dohvati, poznate: set, pregled: dict | None = No
                  and not re.search(r"\.(css|js|png|jpe?g|svg|webp|ico|pdf|woff2?)(\?|$)", v, re.I)][:NAJVISE_STRANICA_IMENIKA]
     for v in unutarnje:
         try:
-            sve += poveznice(uvoz.dekodiraj(dohvati(v)), v)
+            tekst = uvoz.dekodiraj(dohvati(v))
+            sve += poveznice(tekst, v) + ["https://" + m.lower() for m in RE_DOMENA_U_TEKSTU.findall(tekst)]
         except Exception:  # noqa: BLE001
             continue
     if pregled is not None:
         pregled["unutarnjih_stranica"] = len(unutarnje)
+    # Popis trgovaca često je u tekstu ili ugrađenom JSON-u (prikazuje ga skripta), a ne u poveznicama.
+    sve += ["https://" + m.lower() for m in RE_DOMENA_U_TEKSTU.findall(html)]
     for veza in sve:
         d = domena(veza)
         if (not d.endswith(".hr") or d == vlastita or d.endswith("." + vlastita) or d in poznate or d in vidjeno

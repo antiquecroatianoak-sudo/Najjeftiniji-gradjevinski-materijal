@@ -88,7 +88,7 @@ Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
 4. **Uključivanje**: prihvaćeni kandidati ulaze u isti dan u uvoz (`uvoz.py --otkriveni`).
 5. **Nove domene bez ručnog upisa**: javni imenici/agregatori cjenika iz `domene.json` → `"imenici"` (sada
    sidrocjenici.com) čitaju se svaki dan; svaka vanjska `.hr` domena koja nije poznata, nije platforma (društvene mreže,
-   tražilice, alati) i nije sam imenik postaje novi kandidat (najviše 150 po pokretanju). Uz istu provjeru kao gore mora
+   tražilice, alati) i nije sam imenik postaje novi kandidat (najviše 80 po pokretanju), uključujući domene navedene u tekstu ili ugrađenom JSON-u imenika i na njegovim podstranicama (do 60). Uz istu provjeru kao gore mora
    proći i **provjeru asortimana**: barem 10 % naziva s građevinskim pojmom (cement, ljepilo, cijev, vijak, alat…), inače
    „asortiman nije građevinski“. **Identitet/duplikat**: domena se svodi na trgovca (bez `www.`), a dvije domene s istim
    naslovom stranice i istim brojem ponuda prihvaćaju se kao jedan trgovac. Neobradiva datoteka bilježi se s kratkim

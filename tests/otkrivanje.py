@@ -175,6 +175,10 @@ IMENIK2 = {"https://im2.hr/": b'<a href="/trgovac/novi">Novi</a><a href="/stil.c
 pregled = {}
 nove2 = o.domene_iz_imenika("https://im2.hr/", lambda url: IMENIK2[url], set(), pregled)
 assert [n["domena"] for n in nove2] == ["novi2.hr"] and pregled["unutarnjih_stranica"] == 1, (nove2, pregled)
+# Imenik koji trgovce prikazuje skriptom: domene iz teksta/JSON-a, ne iz e-mail adresa.
+ugradjeno = b'<script>var t=[{"web":"https:\\/\\/www.json-trg.hr\\/"},{"w":"tekst-trg.hr"}]</script><p>info@mail-trg.hr</p>'
+nove3 = o.domene_iz_imenika("https://im3.hr/", lambda url: ugradjeno, set())
+assert [n["domena"] for n in nove3] == ["json-trg.hr", "tekst-trg.hr"], nove3
 print("DISCOVERY PASS: link + known-path discovery, validation, duplicate supplier, expired, too small, 403, robots.txt, "
       "directory discovery of new domains, construction relevance, same-supplier dedup, parse diagnostics, soft-404 HTML, link-text and subdomain files, "
       "directory sub-pages, "
