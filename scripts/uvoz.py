@@ -376,7 +376,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
     Vraća (podaci za aplikaciju ili None, stanje svakog izvora).
     """
     sada = sada or datetime.now(timezone.utc)
-    lanci, vrste, stanje = [], [], []
+    lanci, vrste, stanje, datumi_lanaca = [], [], [], []
     svi: dict[str, dict] = {}
     vidjeni_oglasi: dict[str, str] = {}
     datumi = []
@@ -420,6 +420,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
         idx = len(lanci)
         lanci.append(izvor["naziv"])
         vrste.append(izvor.get("vrsta", "trgovina"))
+        datumi_lanaca.append(zapis_stanja.get("datum", ""))
         primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = nedostupno = 0
         for s in stavke:
             primljeno += 1
@@ -484,7 +485,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
                 zapis["najniza"], zapis["naziv"], zapis["marka"] = cijena, naziv, marka
         if prihvaceno == 0:
             # Cjenik bez ijedne dostupne ponude ne postaje prazna trgovina u aplikaciji.
-            lanci.pop(); vrste.pop()
+            lanci.pop(); vrste.pop(); datumi_lanaca.pop()
             stanje.append({**zapis_stanja, "uspjeh": False, "greska": "nema dostupnih ponuda", "primljeno": primljeno,
                            "nedostupno": nedostupno, "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata})
             continue
@@ -507,7 +508,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
         return None, stanje
     # Datum aplikacije je najstariji uključeni cjenik, da se ne prikazuje svježije od izvora.
     return {"verzija": 2, "datum": (min(datumi) if datumi else sada.date()).isoformat(), "azurirano": sada.isoformat(timespec="minutes"),
-            "lanci": lanci, "vrsteIzvora": vrste, "proizvodi": proizvodi}, stanje
+            "lanci": lanci, "vrsteIzvora": vrste, "datumiLanaca": datumi_lanaca, "proizvodi": proizvodi}, stanje
 
 
 # ---------- Stranice s popisom cjenika (NN 101/2026) ----------

@@ -570,9 +570,10 @@ function usporedbaKosarice() {
   return { zbroj, najboljeMijesano, sveMijesanoIma, jedinice, najboljePoStavci };
 }
 
-function opisJedinicne(p) {
-  if (!Number.isFinite(p.poJedinici) || p.poJedinici <= 0 || !JEDINICE.includes(p.jedinica)) return "";
-  return `${euro(p.poJedinici)}/${oznakaJedinice(p.jedinica)}${p.spec ? ` · ${p.spec}` : ""}`;
+// Datum cjenika trgovca (stariji cjenici nemaju zaseban datum, pa vrijedi datum cijelog cjenika).
+function datumCijene(lanac) {
+  const d = (podaci.datumiLanaca && podaci.datumiLanaca[lanac]) || podaci.datum;
+  return /^\d{4}-\d{2}-\d{2}$/.test(d || "") ? d.split("-").reverse().join(".") + "." : "nepoznat";
 }
 
 // Izvor, stanje i datum provjere ponude (osobito oglasa). Poveznica vodi na izvornu ponudu.
@@ -622,7 +623,7 @@ function prikaziRezultate() {
       stavka.kupljeno = !stavka.kupljeno;
       spremi();
       prikaziRezultate();
-    }, stavka.kupljeno ? `Vrati ${grupa}` : `Stavi ${grupa} u košaricu`);
+    }, stavka.kupljeno ? `Vrati ${grupa} među nenabavljeno` : `Označi ${grupa} kao nabavljeno`);
     const sadrzaj = document.createElement("div");
     sadrzaj.className = "sadrzaj";
     li.append(kvacica, sadrzaj);
@@ -673,18 +674,29 @@ function prikaziRezultate() {
 
     sadrzaj.insertAdjacentHTML("beforeend", `
       <div class="naziv"></div>
-      <div class="redak"><span class="trgovina"></span><span class="cijena"></span></div>
-      <div class="detalji"><span class="kolicina"></span><span class="mjesto"></span></div>`);
+      <dl class="podaci-ponude">
+        <div><dt>Potrebno</dt><dd class="potrebno"></dd></div>
+        <div><dt>Pakiranje</dt><dd class="kolicina"></dd></div>
+        <div><dt>Jedinična cijena</dt><dd class="jedinicna"></dd></div>
+        <div class="spec-polje" hidden><dt>Specifikacija</dt><dd class="specifikacija"></dd></div>
+        <div><dt>Trgovac</dt><dd class="trgovina"></dd></div>
+        <div><dt>Cijena od</dt><dd class="datum-cijene"></dd></div>
+      </dl>
+      <div class="redak"><span class="ukupno-oznaka">Ukupno</span><span class="cijena"></span></div>
+      <div class="detalji"><span class="mjesto"></span></div>`);
     sadrzaj.querySelector(".naziv").textContent = naziv;
     sadrzaj.querySelector(".trgovina").textContent = lanac;
     sadrzaj.querySelector(".cijena").textContent = euro(cijena);
-    sadrzaj.querySelector(".kolicina").textContent = [
-      pakiranja > 1 ? `${pakiranja} × ${euro(p.cijena)}` : "",
-      kolicina,
-      p.vrstaNejasna ? "Moguće podudaranje · vrsta za provjeru"
-        : imaJedinicnu(p) ? opisJedinicne(p)
-        : p.meta?.razlog ? `Nije uspoređeno: ${p.meta.razlog}` : "Količina nije poznata · bez poretka po jediničnoj cijeni",
-    ].filter(Boolean).join(" · ");
+    sadrzaj.querySelector(".potrebno").textContent = stavka.trazeno
+      ? `${stavka.trazeno.iznos.toLocaleString("hr-HR")} ${oznakaJedinice(stavka.trazeno.jedinica)}` : `${stavka.kom} kom`;
+    sadrzaj.querySelector(".kolicina").textContent =
+      [kolicina, `${pakiranja} × ${euro(p.cijena)}`].filter(Boolean).join(" · ");
+    sadrzaj.querySelector(".jedinicna").textContent = p.vrstaNejasna ? "Moguće podudaranje · vrsta za provjeru"
+      : imaJedinicnu(p) ? `${euro(p.poJedinici)}/${oznakaJedinice(p.jedinica)}`
+      : p.meta?.razlog ? `Nije uspoređeno: ${p.meta.razlog}` : "Količina nije poznata · bez poretka";
+    sadrzaj.querySelector(".spec-polje").hidden = !p.spec;
+    sadrzaj.querySelector(".specifikacija").textContent = p.spec || "";
+    sadrzaj.querySelector(".datum-cijene").textContent = datumCijene(p.lanac);
     if (p.meta) sadrzaj.appendChild(opisPonude(p.meta));
     const mjesto = sadrzaj.querySelector(".mjesto");
     if (rb > 0) {
@@ -717,7 +729,7 @@ function prikaziRezultate() {
     ul.appendChild(li);
   }
 
-  $("napredak").textContent = stanje.popis.length ? `U košarici: ${kupljeno} od ${stanje.popis.length}` : "";
+  $("napredak").textContent = stanje.popis.length ? `Nabavljeno: ${kupljeno} od ${stanje.popis.length}` : "";
   $("ukupno").textContent = euro(ukupno);
   $("ukupno-oznaka").textContent = nedostaje ? "Iznos pronađenih proizvoda" : zaProvjeru ? "Iznos prikazanih ponuda" : "Za plaćanje · odabrana pakiranja";
   $("nedostaje").hidden = nedostaje === 0 && zaProvjeru === 0;
@@ -773,7 +785,7 @@ function prikaziJednuTrgovinu() {
       ? `Nedostaje usporediva ponuda: ${z.nema.join(", ")}. Nije cijeli popis.`
       : z.ukupno - najjeftinijaCijela >= 0.005
         ? `Ima sve · ${euro(z.ukupno - najjeftinijaCijela)} više od najjeftinije trgovine`
-        : "Ima sve · najjeftinija cijela košarica";
+        : "Ima sve · najniži ukupni trošak nabave";
     const placanje = document.createElement("small");
     placanje.textContent = z.nema.length
       ? `Za prikazane proizvode u trgovini: ${euro(z.ukupno)}`

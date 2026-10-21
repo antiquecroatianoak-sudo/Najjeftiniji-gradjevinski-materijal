@@ -241,6 +241,8 @@ p0, st0 = u.obradi([{"id": "z", "naziv": "Z", "format": "csv", "datum": "2026-10
                    lambda i: SVE_NEDOSTUPNO if i["id"] == "z" else GAVRO, sada)
 assert st0[0]["uspjeh"] is False and st0[0]["greska"] == "nema dostupnih ponuda"
 assert p0["lanci"] == ["G"] and all(p[5][0] == 0 for p in p0["proizvodi"]), "no empty store, indexes stay consistent"
+assert len(p0["datumiLanaca"]) == 1 and len(p2["datumiLanaca"]) == len(p2["lanci"]) and p2["datumiLanaca"][0] == "2026-10-20", \
+    "price date per store, aligned with stores"
 # Bez izvora nema objave
 assert u.obradi([], lambda i: b"", sada)[0] is None
 print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source")
