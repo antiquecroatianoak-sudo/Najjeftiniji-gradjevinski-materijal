@@ -29,6 +29,8 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 | Pevex | trgovina | neprovjereno | pevex.hr prikazuje „Cijena na 10.9.2026.” (sidrena cijena), stranica s CSV/XML cjenikom nije pronađena. |
 | IKOMA | trgovina | neprovjereno | HTML katalog s cijenama (ikoma.hr); strojno čitljiv cjenik nije pronađen. |
 | Profi baucentar | trgovina | neprovjereno | Web trgovina (profibaucentar.hr); strojno čitljiv cjenik nije pronađen. |
+| Bačelić | trgovina | neprovjereno | Stranica bacelic.hr/cjenik navodi CSV/XML po poslovnici (ChatGPT, 21.10.2026.; zadnji web shop 06.10.2026. — bio bi zastario). Iz ovog okruženja host blokiran (403), datoteke nisu provjerene. |
+| Gavroprom | trgovina | neprovjereno | Stranica gavroprom.hr/cjenik navodi CSV/XML (ChatGPT, 21.10.2026.; zadnji 16.10.2026. — bio bi zastario). Iz ovog okruženja host blokiran (403), datoteke nisu provjerene. |
 | Njuškalo | oglasnik | blokirano | Službeni API nije pronađen; postoje samo komercijalni scraperi trećih strana. Automatsko prikupljanje bez dopuštenja se ne radi. |
 | Index Oglasi | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Plavi oglasnik | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
@@ -40,7 +42,11 @@ Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
 ## Uključivanje izvora (nakon 17.11.2026. ili uz dopuštenje oglasnika)
 1. Otvoriti stranicu „Objava cjenika” trgovca, preuzeti CSV/XML web trgovine ili poslovnice i provjeriti stupce.
 2. U `scripts/izvori.json` upisati `url`, `format`, po potrebi `"stupci"`, zatim `"status": "provjereno"`, `"omogucen": true`.
-3. Lokalno: `python scripts/uvoz.py --lokalno id=datoteka.csv` i pregledati `site/data/stanje-izvora.json`.
+3. Lokalno: `python scripts/uvoz.py --lokalno id=datoteka.csv --datum id=GGGG-MM-DD` i pregledati `site/data/stanje-izvora.json`.
+
+Datum cjenika je datum objave koji navodi izvor, nikad vrijeme preuzimanja. Cjenik bez datuma ili stariji od 3 dana ne uvozi se
+(`stanje-izvora.json` navodi razlog), a datum u aplikaciji je najstariji uključeni cjenik. Isti barkod s različitom
+količinom, jedinicom ili specifikacijom u dva izvora ne spaja se u jednu ponudu.
 
 ## Oglasi: oblik `oglasi-json`
 Popis objekata: `id, naziv, cijena, valuta, cijenaNaUpit, pregovaranje, kolicina, jedinica (kg/l/m/m2/m3/kom),

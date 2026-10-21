@@ -40,6 +40,8 @@ IZLAZ = KORIJEN / "site" / "data" / "proizvodi.json"
 STANJE = KORIJEN / "site" / "data" / "stanje-izvora.json"
 # Oglas stariji od ovoga smatra se zastarjelim i ne prikazuje se.
 OGLAS_VRIJEDI_DANA = 7
+# Cjenik trgovca stariji od ovoga ne ulazi u usporedbu (obveza je dnevna objava, NN 101/2026).
+CJENIK_VRIJEDI_DANA = 3
 
 # Jedinica -> (osnovna jedinica, faktor).
 JEDINICE = {
@@ -302,8 +304,21 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
     lanci, vrste, stanje = [], [], []
     svi: dict[str, dict] = {}
     vidjeni_oglasi: dict[str, str] = {}
+    datumi = []
     for izvor in izvori:
         zapis_stanja = {"id": izvor["id"], "naziv": izvor["naziv"], "vrsta": izvor.get("vrsta", "trgovina")}
+        # Datum objave cjenika navodi izvor (npr. s popisa datoteka), ne vrijeme preuzimanja.
+        if izvor.get("format") != "oglasi-json":
+            try:
+                datum = datetime.fromisoformat(str(izvor.get("datum"))).date()
+            except ValueError:
+                stanje.append({**zapis_stanja, "uspjeh": False, "greska": "nepoznat datum cjenika"})
+                continue
+            zapis_stanja["datum"] = datum.isoformat()
+            if (sada.date() - datum).days > CJENIK_VRIJEDI_DANA:
+                stanje.append({**zapis_stanja, "uspjeh": False, "greska": f"zastario cjenik od {datum.isoformat()}"})
+                continue
+            datumi.append(datum)
         try:
             sadrzaj = ucitaj(izvor)
             tekst = dekodiraj(sadrzaj) if isinstance(sadrzaj, bytes) else sadrzaj
@@ -366,6 +381,10 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
                 kljuc = barkod or f"{izvor['id']}:{s.get('sifra') or normaliziraj(naziv)}"
             prihvaceno += 1
             zapis = svi.get(kljuc)
+            # Isti barkod s drugom količinom, jedinicom ili specifikacijom nije ista ponuda za usporedbu.
+            if zapis is not None and (zapis["mjera"] != m or zapis["spec"] != spec):
+                kljuc = f"{kljuc}|{m[0] if m else ''}{m[1] if m else ''}|{spec}"
+                zapis = svi.get(kljuc)
             if zapis is None:
                 zapis = svi[kljuc] = {"cijene": {}, "mjera": m, "spec": spec, "meta": meta, "najniza": None}
             if idx not in zapis["cijene"] or cijena < zapis["cijene"][idx]:
@@ -389,7 +408,8 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
     proizvodi.sort(key=lambda p: p[5][1])
     if not proizvodi:
         return None, stanje
-    return {"verzija": 2, "datum": sada.date().isoformat(), "azurirano": sada.isoformat(timespec="minutes"),
+    # Datum aplikacije je najstariji uključeni cjenik, da se ne prikazuje svježije od izvora.
+    return {"verzija": 2, "datum": (min(datumi) if datumi else sada.date()).isoformat(), "azurirano": sada.isoformat(timespec="minutes"),
             "lanci": lanci, "vrsteIzvora": vrste, "proizvodi": proizvodi}, stanje
 
 
@@ -403,9 +423,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--izvori", type=Path, default=IZVORI)
     ap.add_argument("--lokalno", nargs="*", default=[], help="id=datoteka: koristi lokalnu datoteku umjesto preuzimanja")
+    ap.add_argument("--datum", nargs="*", default=[], help="id=GGGG-MM-DD: datum objave cjenika s popisa datoteka izvora")
     a = ap.parse_args()
     svi_izvori = json.loads(a.izvori.read_text(encoding="utf-8"))["izvori"]
     lokalno = dict(x.split("=", 1) for x in a.lokalno)
+    for izvor_id, datum in (x.split("=", 1) for x in a.datum):
+        for i in svi_izvori:
+            if i["id"] == izvor_id:
+                i["datum"] = datum
     aktivni = [i for i in svi_izvori if i.get("omogucen") and i.get("status") == "provjereno"]
     ucitaj = lambda izvor: Path(lokalno[izvor["id"]]).read_bytes() if izvor["id"] in lokalno else preuzmi(izvor)
     podaci, stanje = obradi(aktivni, ucitaj)

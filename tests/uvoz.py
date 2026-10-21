@@ -57,11 +57,11 @@ OGLASI = [
 ]
 import json
 izvori = [
-    {"id": "a", "naziv": "Trgovina A", "vrsta": "trgovina", "format": "csv"},
-    {"id": "b", "naziv": "Trgovina B", "vrsta": "trgovina", "format": "xml"},
+    {"id": "a", "naziv": "Trgovina A", "vrsta": "trgovina", "format": "csv", "datum": "2026-10-20"},
+    {"id": "b", "naziv": "Trgovina B", "vrsta": "trgovina", "format": "xml", "datum": "2026-10-19"},
     {"id": "o1", "naziv": "Oglasnik 1", "vrsta": "oglasnik", "format": "oglasi-json"},
     {"id": "o2", "naziv": "Oglasnik 2", "vrsta": "oglasnik", "format": "oglasi-json"},
-    {"id": "pokvaren", "naziv": "Pokvaren", "vrsta": "trgovina", "format": "csv"},
+    {"id": "pokvaren", "naziv": "Pokvaren", "vrsta": "trgovina", "format": "csv", "datum": "2026-10-20"},
 ]
 sadrzaj = {"a": CSV.encode("cp1250"), "b": XML, "o1": json.dumps(OGLASI[:1] + OGLASI[2:]), "o2": json.dumps(OGLASI[1:2]), "pokvaren": "x;y\n1;2"}
 podaci, stanje = u.obradi(izvori, lambda i: sadrzaj[i["id"]], sada)
@@ -92,6 +92,24 @@ assert opeka[7]["url"] == "https://primjer.invalid/oglas/1"
 mjesalica = po_nazivu["Mješalica za beton"][0]
 assert mjesalica[3] == "" and mjesalica[7]["razlog"] == "specifikacija nije navedena", "incomplete ad is unranked with a reason"
 assert "Skela" not in po_nazivu, "price on request has no amount"
+# Isti barkod, različita jedinica u dva dućana: ne spaja se (inače bi B dobio pogrešnu cijenu po m²).
+CSV_A = "Naziv;Barkod;Neto količina;Jedinica mjere;MPC\nLaminat hrast 8 mm;3859999;2,5;m2;22,50\n"
+CSV_B = "Naziv;Barkod;Neto količina;Jedinica mjere;MPC\nLaminat hrast 8 mm;3859999;1;kom;4,00\n"
+p2, _ = u.obradi([{"id": "a", "naziv": "A", "format": "csv", "datum": "2026-10-20"}, {"id": "b", "naziv": "B", "format": "csv", "datum": "2026-10-20"}],
+                 lambda i: {"a": CSV_A, "b": CSV_B}[i["id"]], sada)
+redovi = [p for p in p2["proizvodi"] if p[0] == "Laminat hrast 8 mm"]
+assert len(redovi) == 2, redovi
+assert sorted((p[2], p[3], tuple(p[5])) for p in redovi) == [(1.0, "kom", (1, 4.0)), (2.5, "m2", (0, 22.5))]
+# Isti barkod i ista mjera: i dalje se spaja.
+p3, _ = u.obradi([{"id": "a", "naziv": "A", "format": "csv", "datum": "2026-10-20"}, {"id": "b", "naziv": "B", "format": "csv", "datum": "2026-10-20"}],
+                 lambda i: CSV_A, sada)
+assert [p[5] for p in p3["proizvodi"]] == [[0, 22.5, 1, 22.5]]
+assert podaci["datum"] == "2026-10-19", "app date is the oldest included price list, not the download time"
+# Zastarjeli ili nedatirani cjenik se ne uvozi i javlja se razlog.
+p4, st4 = u.obradi([{"id": "s", "naziv": "S", "format": "csv", "datum": "2026-10-06"},
+                    {"id": "n", "naziv": "N", "format": "csv"}], lambda i: CSV_A, sada)
+assert p4 is None
+assert [x["greska"] for x in st4] == ["zastario cjenik od 2026-10-06", "nepoznat datum cjenika"]
 # Bez izvora nema objave
 assert u.obradi([], lambda i: b"", sada)[0] is None
 print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source")

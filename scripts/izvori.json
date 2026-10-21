@@ -1,21 +1,107 @@
 {
   "napomena": "Uvoze se samo izvori sa \"status\": \"provjereno\" i \"omogucen\": true. Status mijenja čovjek nakon provjere URL-a, formata i uvjeta korištenja (docs/izvori.md).",
   "izvori": [
-    {"id": "bauhaus", "naziv": "Bauhaus", "vrsta": "trgovina", "format": "csv", "url": null, "status": "neprovjereno", "omogucen": false,
-     "napomena": "Javni CSV/XML cjenik obvezan od 17.11.2026. (NN 101/2026, NN 110/2026). URL još nije objavljen ili nije potvrđen."},
-    {"id": "pevex", "naziv": "Pevex", "vrsta": "trgovina", "format": "csv", "url": null, "status": "neprovjereno", "omogucen": false,
-     "napomena": "Isto kao Bauhaus. Na pevex.hr pretraga nije našla stranicu s cjenikom (20.10.2026.)."},
-    {"id": "ikoma", "naziv": "IKOMA", "vrsta": "trgovina", "format": "csv", "url": null, "status": "neprovjereno", "omogucen": false,
-     "napomena": "Ima HTML katalog s cijenama; strojno čitljiv cjenik nije pronađen."},
-    {"id": "profi-baucentar", "naziv": "Profi baucentar", "vrsta": "trgovina", "format": "csv", "url": null, "status": "neprovjereno", "omogucen": false,
-     "napomena": "Ima web trgovinu; strojno čitljiv cjenik nije pronađen."},
-    {"id": "njuskalo", "naziv": "Njuškalo", "vrsta": "oglasnik", "format": "oglasi-json", "url": null, "status": "blokirano", "omogucen": false,
-     "napomena": "Nema pronađenog službenog API-ja; automatsko prikupljanje vjerojatno krši uvjete korištenja. Treba pisano dopuštenje ili službeni izvoz."},
-    {"id": "index-oglasi", "naziv": "Index Oglasi", "vrsta": "oglasnik", "format": "oglasi-json", "url": null, "status": "neprovjereno", "omogucen": false,
-     "napomena": "Službeni API ili izvoz nije pronađen; uvjeti korištenja nisu provjereni."},
-    {"id": "plavi-oglasnik", "naziv": "Plavi oglasnik", "vrsta": "oglasnik", "format": "oglasi-json", "url": null, "status": "neprovjereno", "omogucen": false,
-     "napomena": "Službeni API ili izvoz nije pronađen; uvjeti korištenja nisu provjereni."},
-    {"id": "facebook-marketplace", "naziv": "Facebook Marketplace", "vrsta": "oglasnik", "format": "oglasi-json", "url": null, "status": "blokirano", "omogucen": false,
-     "napomena": "Zahtijeva prijavu; prijave i CAPTCHA se ne zaobilaze."}
+    {
+      "id": "bauhaus",
+      "naziv": "Bauhaus",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Javni CSV/XML cjenik obvezan od 17.11.2026. (NN 101/2026, NN 110/2026). URL još nije objavljen ili nije potvrđen."
+    },
+    {
+      "id": "pevex",
+      "naziv": "Pevex",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Isto kao Bauhaus. Na pevex.hr pretraga nije našla stranicu s cjenikom (20.10.2026.)."
+    },
+    {
+      "id": "ikoma",
+      "naziv": "IKOMA",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Ima HTML katalog s cijenama; strojno čitljiv cjenik nije pronađen."
+    },
+    {
+      "id": "profi-baucentar",
+      "naziv": "Profi baucentar",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Ima web trgovinu; strojno čitljiv cjenik nije pronađen."
+    },
+    {
+      "id": "bacelic",
+      "naziv": "Bačelić",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://www.bacelic.hr/cjenik/",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Javni CSV/XML cjenici po poslovnici (prema provjeri ChatGPT-a 21.10.2026., zadnji web shop 06.10.2026.). Iz razvojnog okruženja host je blokiran (403); datoteke nisu preuzete ni provjerene."
+    },
+    {
+      "id": "gavroprom",
+      "naziv": "Gavroprom",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://www.gavroprom.hr/cjenik",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Javni CSV/XML cjenici (prema provjeri ChatGPT-a 21.10.2026., zadnji 16.10.2026.). Iz razvojnog okruženja host je blokiran (403); datoteke nisu preuzete ni provjerene."
+    },
+    {
+      "id": "njuskalo",
+      "naziv": "Njuškalo",
+      "vrsta": "oglasnik",
+      "format": "oglasi-json",
+      "url": null,
+      "status": "blokirano",
+      "omogucen": false,
+      "napomena": "Nema pronađenog službenog API-ja; automatsko prikupljanje vjerojatno krši uvjete korištenja. Treba pisano dopuštenje ili službeni izvoz."
+    },
+    {
+      "id": "index-oglasi",
+      "naziv": "Index Oglasi",
+      "vrsta": "oglasnik",
+      "format": "oglasi-json",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Službeni API ili izvoz nije pronađen; uvjeti korištenja nisu provjereni."
+    },
+    {
+      "id": "plavi-oglasnik",
+      "naziv": "Plavi oglasnik",
+      "vrsta": "oglasnik",
+      "format": "oglasi-json",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Službeni API ili izvoz nije pronađen; uvjeti korištenja nisu provjereni."
+    },
+    {
+      "id": "facebook-marketplace",
+      "naziv": "Facebook Marketplace",
+      "vrsta": "oglasnik",
+      "format": "oglasi-json",
+      "url": null,
+      "status": "blokirano",
+      "omogucen": false,
+      "napomena": "Zahtijeva prijavu; prijave i CAPTCHA se ne zaobilaze."
+    }
   ]
 }
