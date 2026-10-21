@@ -20,6 +20,11 @@ assert u.mjera("", "", 12.0, None, "Pločica 60x60 cm") is None
 assert u.mjera("", "m", 3.2, None, "PVC cijev 110 mm") == (1.0, "m"), "price per metre; 110 mm is the diameter"
 assert u.mjera("", "kom", 30.0, None, "Cement 4x25 kg") == (100, "kg")
 assert u.mjera("", "", 5.0, None, "Čekić") is None
+# Akcija samo iz oznake cjenika ili niže posebne cijene; bez MPC (samo posebna) nije akcija sama po sebi.
+_ak = "Naziv;Šifra;Neto količina;Jedinica mjere;MPC;Posebna cijena;Cijena jedinice\nA 1 kg;1;1;kg;;2,00;2,00\nB 1 kg;2;1;kg;3,00;2,50;2,50\n"
+_pa, _sa = u.obradi([{"id": "k", "naziv": "K", "format": "csv", "datum": "2026-10-21"}], lambda i: _ak, datetime(2026, 10, 21, 9, tzinfo=timezone.utc))
+_pk = {p[0]: p for p in _pa["proizvodi"]}
+assert _pk["A 1 kg"][8][0][2] == 0 and _pk["B 1 kg"][8][0][2] == 1 and _pk["B 1 kg"][8][0][3] == "p", _pk
 # Djelomičan komad ("2,5" kom) nije količina: odlučuje naziv; bez količine u nazivu nema poretka.
 assert u.mjera("2,5", "kom", 7.5, None, "Ljepilo 2,5 kg") == (2.5, "kg") and u.mjera("0,5", "kom", 3.0, None, "Kist") is None
 # Cijena za jedinicu mjere trgovca mora odgovarati cijeni i količini (do zaokruživanja); inače se ponuda ne rangira.

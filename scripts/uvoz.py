@@ -86,7 +86,8 @@ STUPCI = {
     "posebna": ["posebna cijena", "akcijska cijena", "mpc za vrijeme posebnog oblika prodaje", "special price"],
     "jedinica": ["jedinica mjere", "mjerna jedinica", "jedinica", "jm", "unit"],
     "kolicina": ["neto kolicina", "kolicina", "neto kolicina proizvoda", "quantity"],
-    "jedinicna": ["cijena za jedinicu mjere", "cijena jedinice mjere", "jedinicna cijena", "cijena po jedinici mjere", "unit price"],
+    "jedinicna": ["cijena za jedinicu mjere", "cijena jedinice mjere", "jedinicna cijena", "cijena po jedinici mjere", "unit price",
+                  "cijena jedinice"],
     "barkod": ["barkod", "ean", "ean kod", "barcode"],
     "dostupnost": ["dostupnost", "dostupno", "raspolozivost"],
     # Poseban oblik prodaje (akcija) i njegov naziv/uvjet: cijena u retku tada je cijena za vrijeme akcije.
@@ -608,7 +609,8 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                 osnove[osnova] += 1
                 if u_broj(s.get("jedinicna")) and m and m[1] != "kom" and polje == "" and m[0] != 1:
                     osnove["jedinicna_jednaka_cijeni"] += 1
-                akcija = normaliziraj(s.get("akcija", "")) in ("da", "1", "true") or cijena != mpc
+                # Akcija: oznaka posebnog oblika prodaje u cjeniku ili posebna cijena niža od MPC (ne nedostajuća MPC).
+                akcija = normaliziraj(s.get("akcija", "")) in ("da", "1", "true") or bool(posebna and mpc and posebna < mpc)
                 trag = [s.get("_redak"), (s.get("sifra") or "").strip(), int(akcija), osnova]
                 if akcija and (s.get("akcija_naziv") or "").strip():
                     trag.append(s["akcija_naziv"].strip()[:60])
