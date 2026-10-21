@@ -21,6 +21,7 @@ module.exports = function ucitajAplikaciju(podaci) {
       stanje.iskljuceni = iskljuceni; stanje.jedna = jedna || null; pogociCache.clear(); ponudeCache.clear();
     };
     globalThis.__api = { pogoci, ponudeZaGrupu, dozvoljeniLanci, sviLanci, imaJedinicnu, stanje: () => stanje,
+      NASTAVCI: [...NASTAVCI], PRIJEDLOZI: [...PRIJEDLOZI],
       klasifikacija: () => klasifikacija };
   `, ctx);
   ctx.__postavi(podaci);

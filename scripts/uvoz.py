@@ -7,7 +7,7 @@ izmišlja: ako nijedan izvor ne da podatke, aplikacija se ne objavljuje s prazni
 ili lažnim cjenikom.
 
 Formati:
-  - "csv" / "xml": javni cjenici trgovaca na malo (NN 101/2026, NN 110/2026).
+  - "csv" / "xml": javni cjenici trgovaca na malo (NN 101/2026, od 1.10.2026.).
     Struktura nije propisana, pa se stupci prepoznaju po uobičajenim nazivima
     (naziv, šifra, marka, MPC, jedinica mjere, cijena za jedinicu mjere...),
     a izvor može zadati vlastite nazive stupaca ("stupci").

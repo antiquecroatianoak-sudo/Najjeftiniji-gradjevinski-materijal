@@ -15,8 +15,8 @@ razvoja i još nije implementirano.
 
 **Stanje:** 7 trgovaca uključeno ručno nakon stvarnog uvoza (Gavroprom, Top Alati, Veker, TERMO-METAL,
 Građevinska apoteka, Telack, Profi baucentar), a Bačelić i ARKOR otkriveni su automatski (9 ukupno, vidi docs/izvori.md); ostali su popisani
-s pravim stanjem u [docs/izvori.md](docs/izvori.md). Trgovci moraju objavljivati strojno čitljive cjenike od 17.11.2026.
-(NN 101/2026, NN 110/2026). Popis funkcija: [docs/paritet.md](docs/paritet.md).
+s pravim stanjem u [docs/izvori.md](docs/izvori.md). Trgovci s mrežnim stranicama moraju dnevno objavljivati strojno čitljive cjenike (XML ili CSV) od 1.10.2026.
+(NN 101/2026). Popis funkcija: [docs/paritet.md](docs/paritet.md).
 
 Dnevni rad (GitHub Actions): automatsko otkrivanje javnih cjenika na službenim domenama, provjera i uključivanje,
 uvoz svih provjerenih izvora uz zadnji valjani cjenik za izvor koji ne radi, atomska objava. Detalji u docs/izvori.md.

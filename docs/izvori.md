@@ -94,7 +94,7 @@ dodani su ručno u `domene.json`.
 
 **Webshopovi bez CSV/XML**: 10 trgovaca ima cijene samo na HTML stranicama. Uvoz cijena s HTML stranica (npr. strukturirani
 podaci schema.org/Product) nije uveden jer mijenja dosadašnje pravilo „samo službeni strojno čitljivi cjenici“; čeka
-odluku. Obveza objave CSV/XML za sve trgovce počinje 17.11.2026.
+odluku. Obveza objave CSV/XML vrijedi od 1.10.2026. (NN 101/2026, t. IX); trgovci bez cjenika ne ispunjavaju je ili ga ne objavljuju na pronađenoj adresi.
 
 ## Brojke (od commita nakon 2121705)
 Raniji izvještaji zvali su broj redaka u `proizvodi.json` „ponudama“. To je zapravo broj **jedinstvenih proizvoda**, pa je
@@ -108,9 +108,11 @@ Neusklađeni brojevi zaustavljaju objavu. Sve se zapisuje u `stanje-izvora.json`
 
 ## Pravna osnova za trgovine
 - Odluka o objavi cjenika proizvoda i usluga kao mjera izravne kontrole cijena, **NN 101/2026**
-  (11.9.2026.), izmjena **NN 110/2026**: obveza vrijedi od **17.11.2026.** za sve trgovce na malo s mrežnom stranicom
-  (ne samo hranu), u strojno čitljivom **CSV ili XML** obliku, zasebno za svaku poslovnicu i web trgovinu,
-  dnevno do 8:00, dostupno 30 dana. Struktura datoteke nije propisana; pravilnik o sadržaju je najavljen.
+  (11.9.2026.): t. IX — vrijedi od **1.10.2026.**; t. V — obveza za trgovce na malo s uspostavljenim mrežnim
+  stranicama (ne samo hranu); t. II — strojno čitljivo **XML ili CSV**, dnevno do 8:00; t. VII — automatizirani
+  dohvat; zasebno za svaku poslovnicu i web trgovinu. Nije propisana jedna središnja baza.
+  *Ispravak 21.10.2026.:* raniji navod „obveza od 17.11.2026. (NN 110/2026)“ bio je pogrešan; točke su prema službenom
+  tekstu koji je provjerio ChatGPT (narodne-novine.nn.hr nije dohvatljiv iz ovog okruženja). Struktura datoteke nije propisana; pravilnik o sadržaju je najavljen.
   - https://www.zakon.hr/c/podzakonski-propis/1420946/nn-101-2026-%2811.9.2026.%29%2C-odluka-o-objavi-cjenika-proizvoda-i-usluga-kao-mjera-izravne-kontrole-cijena
   - https://narodne-novine.nn.hr/clanci/sluzbeni/2026_09_101_1213.html
   - https://www.teb.hr/novosti/2026/od-1102026-obveza-isticanja-dodatne-sidrene-cijene-i-objavi-cjenika-proizvoda-i-usluga/
@@ -131,7 +133,7 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 | Top Alati | trgovina | **uključeno** | Stvarni uvoz poslovnice Varaždin 21.10.2026.: 16834 primljeno, 2605 prihvaćeno, 14229 nedostupno. Poslovnice su zasebni izvori, ali jedan trgovac. |
 | Veker | trgovina | **uključeno** | Stvarni uvoz XML-a 21.10.2026.: 3791 primljeno, 3712 prihvaćeno, 79 nedostupno; datum iz `generirano`. |
 | Pevex | trgovina | blokirano | Službena stranica sidrene-cijene vodi na `store-3/aktualni.csv`; dohvat 403. |
-| Bauhaus | trgovina | blokirano | Dohvat 403. Javni cjenik obvezan od 17.11.2026. |
+| Bauhaus | trgovina | blokirano | Dohvat 403. Javni cjenik obvezan od 1.10.2026. (NN 101/2026). |
 | Bačelić | trgovina | blokirano | Stranica navodi CSV/XML; dohvat 403. |
 | Arkor | trgovina | blokirano | Dohvat 403; URL cjenika nije potvrđen. |
 | Profi baucentar | trgovina | **uključeno** | Javni `sidrena-cijena.xml` (profibaucentar.hr): 2017 primljeno, 1543 prihvaćeno, 474 nedostupno; datum iz `generated`. |
@@ -190,7 +192,7 @@ Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
 - Za aktivaciju (tek nakon neovisne provjere): Settings → Pages → Source: **GitHub Actions**; spojiti PR #1 na `main`;
   ručno pokrenuti radni tok (Actions → Dnevno ažuriranje cijena → Run workflow) i provjeriti sažetak i objavljenu stranicu.
 
-## Uključivanje izvora (nakon 17.11.2026. ili uz dopuštenje oglasnika)
+## Uključivanje izvora (službeni cjenici trgovaca; oglasnici uz dopuštenje)
 1. Otvoriti stranicu „Objava cjenika” trgovca, preuzeti CSV/XML web trgovine ili poslovnice i provjeriti stupce.
 2. U `scripts/izvori.json` upisati `url`, `format`, po potrebi `"stupci"`, zatim `"status": "provjereno"`, `"omogucen": true`.
 3. Lokalno: `python scripts/uvoz.py --lokalno id=datoteka.csv --datum id=GGGG-MM-DD` i pregledati `site/data/stanje-izvora.json`.

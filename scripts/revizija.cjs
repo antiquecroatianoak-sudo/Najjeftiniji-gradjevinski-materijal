@@ -73,18 +73,21 @@ const kombinacije = [{ opis: "svi", iskljuceni: [] },
   ...lanciSvi.map((l) => ({ opis: `bez ${podaci.lanci[l]}`, iskljuceni: [podaci.lanci[l]] })),
   ...lanciSvi.map((l) => ({ opis: `jedna trgovina ${podaci.lanci[l]}`, iskljuceni: [], jedna: podaci.lanci[l] }))];
 const filtriGubici = [];
+// Riječi naziva nerazvrstanih proizvoda pripremaju se jednom (inače 74 vrste × svi proizvodi).
+const nerazvrstaniIndeksi = podaci.proizvodi.map((_, i) => i).filter((i) => !g.vrstaProizvoda(i));
+const rijeciNaziva = [];
+for (const i of nerazvrstaniIndeksi) rijeciNaziva[i] = Skupine.analiziraj(podaci.proizvodi[i][0]).rijeci;
 let filtriProvjera = 0;
 for (const d of Skupine.definicije) {
   const upit = Skupine.nazivi[d.id][0];
   // Očekivano: razvrstani i mogući članovi te nerazvrstani proizvodi koji sadrže sve riječi upita
   // (aplikacija ih namjerno vraća kao „vrsta za provjeru“). Riječi se ovdje provjeravaju neovisno o aplikaciji.
-  const nastavci = ["", "a", "e", "i", "o", "u", "om", "em", "im", "ima", "ama", "ih", "oj", "og", "ja", "je", "ji", "ju", "jom", "ovi", "ove", "ova", "evi", "eve"];
+  // Pravilo nastavaka i prijedloga je ono iz aplikacije (specifikacija „sadrži riječ“), a usporedba je neovisna.
+  const nastavci = A.NASTAVCI;
   const kor = (w) => { const k = w.length >= 4 ? w.replace(/[aeiou]+$/, "") : w; return k.length < 3 ? w : k; };
-  const rijeciUpita = Skupine.analiziraj(upit).rijeci.filter((w) => !["s", "sa", "od", "za", "u", "na", "bez", "iz", "po"].includes(w)).map(kor);
-  const sadrziSve = (i) => { const r = Skupine.analiziraj(podaci.proizvodi[i][0]).rijeci;
-    return rijeciUpita.every((k) => r.some((w) => w.startsWith(k) && nastavci.includes(w.slice(k.length)))); };
-  const clanovi = new Set([...(g.pogoci(upit) || []), ...g.moguciPogoci(upit),
-    ...podaci.proizvodi.map((_, i) => i).filter((i) => !g.vrstaProizvoda(i) && sadrziSve(i))]);
+  const rijeciUpita = Skupine.analiziraj(upit).rijeci.filter((w) => !A.PRIJEDLOZI.includes(w)).map(kor);
+  const sadrziSve = (i) => rijeciNaziva[i].length && rijeciUpita.every((k) => rijeciNaziva[i].some((w) => w.startsWith(k) && nastavci.includes(w.slice(k.length))));
+  const clanovi = new Set([...(g.pogoci(upit) || []), ...g.moguciPogoci(upit), ...nerazvrstaniIndeksi.filter(sadrziSve)]);
   for (const k of kombinacije) {
     app.__filtar(k.iskljuceni, k.jedna);
     const dopusteni = A.dozvoljeniLanci();
@@ -97,7 +100,8 @@ for (const d of Skupine.definicije) {
     const dvaput = ponude.length !== dobiveno.size;
     const krivLanac = ponude.filter((p) => !dopusteni.has(p.lanac)).length;
     if (nedostaje.length || visak.length || dvaput || krivLanac) filtriGubici.push({ vrsta: d.id, filtar: k.opis, nedostaje: nedostaje.length,
-      visak: visak.length, dvaput, krivLanac, primjeri: nedostaje.slice(0, 3).map((i) => podaci.proizvodi[i][0]) });
+      visak: visak.length, dvaput, krivLanac, primjeri: nedostaje.slice(0, 3).map((i) => podaci.proizvodi[i][0]),
+      primjeriViska: visak.slice(0, 3).map((i) => podaci.proizvodi[i][0]) });
   }
 }
 app.__filtar([], null);
