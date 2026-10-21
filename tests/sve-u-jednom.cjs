@@ -93,5 +93,20 @@ assert.equal(vm.runInContext("stanje.popis[0].trazeno.iznos", app), 50);
 // Trgovina bez ijedne stavke (0/Y) prikazana je odvojeno, bez iznosa.
 assert.equal(`${r.nepotpune[0].ime} ${r.nepotpune[0].pokriveno}/${r.nepotpune[0].stavki}`, "C 0/1");
 assert.equal(app.__cvorovi["trgovine-nepotpune"].children[0].children[0].children[1].textContent, "—");
+// Slučajevi iz pregleda košarice #11, s jedinicama građevinske aplikacije (l).
+// 1 l: B ima 1 l za 1,00 € i 2 l za 1,60 € (niža jedinična) → 1,00 €; otvorene kartice jednake retku.
+app = scenarij([P("Temeljni premaz 1 l", 1, "l", [0, 0.9, 1, 1]), P("Temeljni premaz 2 l", 2, "l", [1, 1.6])],
+  [{ naziv: "Temeljni premaz", kom: 1, trazeno: { iznos: 1, jedinica: "l" } }]);
+r = vm.runInContext("prikaziJednuTrgovinu()", app);
+assert.equal(r.potpune.find((x) => x.ime === "B").ukupno, 1, "1 l for 1,00 €, not 2 l for 1,60 €");
+assert.equal(r.potpune.find((x) => x.ime === "B").ukupno, app.__kartice("B"));
+assert.equal(r.kombinacija, 0.9);
+// 3 l: A 2 l (0,80 €/l → 2 × = 3,20 €), B 1 l (0,90 €/l → 3 × = 2,70 €): pobjednik je B.
+app = scenarij([P("Temeljni premaz 2 l", 2, "l", [0, 1.6]), P("Temeljni premaz 1 l", 1, "l", [1, 0.9])],
+  [{ naziv: "Temeljni premaz", kom: 1, trazeno: { iznos: 3, jedinica: "l" } }]);
+r = vm.runInContext("prikaziJednuTrgovinu()", app);
+assert.deepEqual(Array.from(r.potpune, (x) => [x.ime, Math.round(x.ukupno * 100) / 100, x.najpovoljniji]), [["B", 2.7, true], ["A", 3.2, false]]);
+assert.equal(Math.round(r.kombinacija * 100) / 100, 2.7);
+assert.equal(`${r.nepotpune[0].ime} ${r.nepotpune[0].pokriveno}/${r.nepotpune[0].stavki}`, "C 0/1");
 console.log("ONE-STORE PASS: complete vs incomplete, X/Y and missing items, ties, cents, whole packs, kept quantity, "
   + "row = opened cards, difference to combination, no complete store, whole-pack cost over unit price, 0/Y stores");
