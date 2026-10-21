@@ -23,20 +23,29 @@ Iz ovog razvojnog okruženja izravan pristup stranicama trgovaca i oglasnika nij
 bauhaus.hr, pevex.hr, njuskalo.hr, index.hr, plavi-oglasnik.hr; ni dohvat stranica preko alata nije radio).
 Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 
-| Izvor | Vrsta | Stanje | Što je utvrđeno |
+| Izvor | Vrsta | Stanje | Što je utvrđeno (21.10.2026.) |
 |---|---|---|---|
-| Bauhaus | trgovina | neprovjereno | Pretraga nije našla stranicu s cjenikom. Obveza od 17.11.2026. |
-| Pevex | trgovina | neprovjereno | pevex.hr prikazuje „Cijena na 10.9.2026.” (sidrena cijena), stranica s CSV/XML cjenikom nije pronađena. |
-| IKOMA | trgovina | neprovjereno | HTML katalog s cijenama (ikoma.hr); strojno čitljiv cjenik nije pronađen. |
-| Profi baucentar | trgovina | neprovjereno | Web trgovina (profibaucentar.hr); strojno čitljiv cjenik nije pronađen. |
-| Bačelić | trgovina | blokirano | bacelic.hr/cjenik navodi CSV/XML; dohvat vraća 403 i ChatGPT-u i ovom okruženju (21.10.2026.). Pristup se ne zaobilazi. |
-| Gavroprom | trgovina | neprovjereno | gavroprom.hr/cjenik: ChatGPT je 21.10.2026. dohvatio stranicu (200) i noviji CSV web trgovine od 21.10.2026. Čitač `popis` uzima najnoviji CSV po poslovnici, datum iz naziva datoteke i kodira Unicode u putu. Iz ovog okruženja host blokiran (403); stvarni stupci još nisu provjereni uvozom. Uvoz je prilagođen stvarnom zaglavlju (`mjerna_jedinica`, `dostupnost`; `sidrena_cijena_od` nije datum cjenika), provjereno na stvarnim retcima koje je dostavio ChatGPT. Uključuje se nakon punog uvoza stvarne datoteke. |
-| Njuškalo | oglasnik | blokirano | Službeni API nije pronađen; postoje samo komercijalni scraperi trećih strana. Automatsko prikupljanje bez dopuštenja se ne radi. |
+| Gavroprom | trgovina | neprovjereno | Stranica i CSV od 21.10.2026. dostupni ChatGPT-u (3633 retka). Uvoz prilagođen stvarnom zaglavlju i retcima. Čeka puni uvoz stvarne datoteke. |
+| Top Alati | trgovina | neprovjereno | CSV poslovnice Varaždin od 21.10.2026. dostupan ChatGPT-u (16834 retka, 2605 dostupno). Uvoz prilagođen stvarnom zaglavlju i retku. Čeka puni uvoz. |
+| Veker | trgovina | neprovjereno | Stranica dostupna (200); arhivski XML s datumom u nazivu. Stupci XML-a još nisu viđeni. |
+| Pevex | trgovina | blokirano | Službena stranica sidrene-cijene vodi na `store-3/aktualni.csv`; dohvat 403. |
+| Bauhaus | trgovina | blokirano | Dohvat 403. Javni cjenik obvezan od 17.11.2026. |
+| Bačelić | trgovina | blokirano | Stranica navodi CSV/XML; dohvat 403. |
+| Arkor | trgovina | blokirano | Dohvat 403; URL cjenika nije potvrđen. |
+| Profi baucentar | trgovina | neprovjereno | Dohvat 503; cjenik nije pronađen. |
+| Vijci (Kralj commerce) | trgovina | neprovjereno | Dohvat 503; identitet nije provjeren. |
+| IKOMA | trgovina | neprovjereno | Navedena stranica nije cjenik (prazna pretraga). |
+| Fero-Term | trgovina | neprovjereno | Kandidat; URL i identitet nisu potvrđeni. |
+| Petrokov | trgovina | neprovjereno | Kandidat; URL i identitet nisu potvrđeni. |
+| Termometal | trgovina | neprovjereno | Kandidat; URL i identitet nisu potvrđeni. |
+| Njuškalo | oglasnik | blokirano | Službeni API nije pronađen; automatsko prikupljanje bez dopuštenja se ne radi. |
 | Index Oglasi | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Plavi oglasnik | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Facebook Marketplace | oglasnik | blokirano | Zahtijeva prijavu; prijave i CAPTCHA se ne zaobilaze. |
 
-Ostali kandidati iz pretrage (Trgoing, Kušer, Knegingrad) imaju web stranice; cjenici nisu pronađeni.
+Popisano je 13 različitih trgovaca (poslovnice istog trgovca ne broje se zasebno). **Uključeno: 0.** Statusi 403/503 i
+podaci o datotekama potječu iz ChatGPT-ova okruženja; iz ovog razvojnog okruženja svi ti hostovi su blokirani.
+
 Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
 
 ## Uključivanje izvora (nakon 17.11.2026. ili uz dopuštenje oglasnika)

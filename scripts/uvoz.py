@@ -65,7 +65,7 @@ STUPCI = {
     "posebna": ["posebna cijena", "akcijska cijena", "mpc za vrijeme posebnog oblika prodaje", "special price"],
     "jedinica": ["jedinica mjere", "mjerna jedinica", "jedinica", "jm", "unit"],
     "kolicina": ["neto kolicina", "kolicina", "neto kolicina proizvoda", "quantity"],
-    "jedinicna": ["cijena za jedinicu mjere", "jedinicna cijena", "cijena po jedinici mjere", "unit price"],
+    "jedinicna": ["cijena za jedinicu mjere", "cijena jedinice mjere", "jedinicna cijena", "cijena po jedinici mjere", "unit price"],
     "barkod": ["barkod", "ean", "ean kod", "barcode"],
     "dostupnost": ["dostupnost", "dostupno", "raspolozivost"],
 }
@@ -440,8 +440,10 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
 
 # ---------- Stranice s popisom cjenika (NN 101/2026) ----------
 # Naziv datoteke: <vrsta>_<adresa>_<trgovac>_<oznaka>_<DD.MM.GGGG>_<HH.MM.SS[.mmm]>.csv
+# (trgovci pišu i DD-MM-GGGG_HH-MM ili GGGGMMDDTHHMMSS)
 RE_DATOTEKA = re.compile(r"""href\s*=\s*["']([^"']+?\.(csv|xml))["']""", re.I)
-RE_DATUM_DATOTEKE = re.compile(r"_(\d{2})\.(\d{2})\.(\d{4})(?:_(\d{2})\.(\d{2})\.(\d{2}))?[^/]*\.(?:csv|xml)$", re.I)
+RE_DATUM_DATOTEKE = re.compile(r"[_-](\d{2})[.-](\d{2})[.-](\d{4})(?:_(\d{2})[.-](\d{2})(?:[.-](\d{2}))?)?[^/]*\.(?:csv|xml)$", re.I)
+RE_DATUM_KOMPAKTNO = re.compile(r"[_-]?(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})[^/]*\.(?:csv|xml)$", re.I)
 
 
 def cjenici_sa_stranice(html: str, stranica: str, oblik: str = "csv") -> list[dict]:
@@ -455,10 +457,12 @@ def cjenici_sa_stranice(html: str, stranica: str, oblik: str = "csv") -> list[di
             continue
         put = urllib.parse.unquote(href.split("?")[0])
         ime = put.rsplit("/", 1)[-1]
-        m = RE_DATUM_DATOTEKE.search(ime)
-        if not m:
-            continue
-        d, mj, g, h, mi, se = m.groups()
+        if m := RE_DATUM_DATOTEKE.search(ime):
+            d, mj, g, h, mi, se = m.groups()
+        elif m := RE_DATUM_KOMPAKTNO.search(ime):
+            g, mj, d, h, mi, se = m.groups()
+        else:
+            continue  # bez datuma u nazivu (npr. stalni "cjenik.xml") datum objave nije poznat
         vrijeme = datetime(int(g), int(mj), int(d), int(h or 0), int(mi or 0), int(se or 0))
         poslovnica = ime[: m.start()]
         apsolutno = urllib.parse.urljoin(stranica, put)

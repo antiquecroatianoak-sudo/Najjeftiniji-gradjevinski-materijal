@@ -158,6 +158,27 @@ assert "STIROPOR EPS GRAFITNI 12CM BEZ PREKLOPA" not in po, "unavailable rows ar
 assert stg[0]["nedostupno"] == 1 and stg[0]["prihvaceno"] == 2
 assert pg["datum"] == "2026-10-21", "date from the file listing, not sidrena_cijena_od"
 assert u.specifikacija("STIROPOR EPS GRAFITNI 12CM BEZ PREKLOPA", "m2") == "grafitni · 120 mm"
+# Top Alati, stvarno zaglavlje i redak 21.10.2026. (ChatGPT, kosarica #4); dostupnost "nedostupno" se ne uvozi.
+TOP = ('naziv;sifra;marka;jedinica_mjere;cijena_jedinice_mjere;maloprodajna_cijena;poseban_oblik_prodaje;'
+       'naziv_posebnog_oblika_prodaje;sidrena_cijena_2026_09_10;barkod;raspolozivost\n'
+       '"Produženi nasadni ključ, 10 mm";"C5110";"Richmann";"KOM";;"2,17";"Da";"Popust";"2,84";"";"dostupno"\n'
+       '"Produženi nasadni ključ, 12 mm";"C5112";"Richmann";"KOM";;"2,40";"ne";;"2,40";"";"nedostupno"\n')
+pt, stt = u.obradi([{"id": "t", "naziv": "Top Alati", "format": "csv", "datum": "2026-10-21"}], lambda i: TOP, sada)
+assert stt[0]["prihvaceno"] == 1 and stt[0]["nedostupno"] == 1
+kljuc10 = pt["proizvodi"][0]
+assert kljuc10[0] == "Produženi nasadni ključ, 10 mm" and kljuc10[5] == [0, 2.17] and kljuc10[2:4] == [1.0, "kom"] and kljuc10[6] == "10 mm"
+# Nazivi datoteka Top Alata i Vekera.
+HTML2 = ("<a href=\"https://top-alati.hr/user-content/cjenici/2026-10-21/prodavaonica_Optujska%20ulica%20169A-42000-"
+         "Vara%C5%BEdin_P-W1_57_21-10-2026_07-53.csv\">x</a>"
+         "<a href=\"https://top-alati.hr/user-content/cjenici/2026-10-20/prodavaonica_Optujska%20ulica%20169A-42000-"
+         "Vara%C5%BEdin_P-W1_57_20-10-2026_07-50.csv\">x</a>"
+         "<a href=\"/wp-content/uploads/cjenici-webshop/cjenik_20261020T073012.xml\">x</a>"
+         "<a href=\"/wp-content/uploads/cjenici-webshop/cjenik.xml\">x</a>")
+ct = u.cjenici_sa_stranice(HTML2, "https://top-alati.hr/prices-list")
+assert [(x["datum"], x["url"].endswith("21-10-2026_07-53.csv")) for x in ct] == [("2026-10-21", True)], ct
+assert "%20" in ct[0]["url"] and "%C5%BE" in ct[0]["url"], ct[0]["url"]
+cv = u.cjenici_sa_stranice(HTML2, "https://www.veker.hr/cjenici/", "xml")
+assert [x["datum"] for x in cv] == ["2026-10-20"], "undated cjenik.xml is ignored; dated archive file is used"
 # Bez izvora nema objave
 assert u.obradi([], lambda i: b"", sada)[0] is None
 print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source")

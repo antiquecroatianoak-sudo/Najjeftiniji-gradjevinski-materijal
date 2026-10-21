@@ -7,19 +7,20 @@
       "vrsta": "trgovina",
       "format": "csv",
       "url": null,
-      "status": "neprovjereno",
+      "status": "blokirano",
       "omogucen": false,
-      "napomena": "Javni CSV/XML cjenik obvezan od 17.11.2026. (NN 101/2026, NN 110/2026). URL još nije objavljen ili nije potvrđen."
+      "napomena": "Dohvat vraća 403 (ChatGPT, 21.10.2026.) i blokiran je iz ovog okruženja. Javni cjenik obvezan od 17.11.2026."
     },
     {
       "id": "pevex",
       "naziv": "Pevex",
       "vrsta": "trgovina",
       "format": "csv",
-      "url": null,
-      "status": "neprovjereno",
+      "url": "https://www.pevex.hr/Documents/cjenici/store-3/aktualni.csv",
+      "status": "blokirano",
       "omogucen": false,
-      "napomena": "Isto kao Bauhaus. Na pevex.hr pretraga nije našla stranicu s cjenikom (20.10.2026.)."
+      "napomena": "Službena stranica sidrene-cijene (aktualno 21.10.2026.) vodi na store-3/aktualni.csv; izravni dohvat vraća 403 i ChatGPT-u i ovom okruženju. Datum nije u nazivu datoteke.",
+      "stranica": "https://www.pevex.hr/sidrene-cijene"
     },
     {
       "id": "ikoma",
@@ -29,7 +30,8 @@
       "url": null,
       "status": "neprovjereno",
       "omogucen": false,
-      "napomena": "Ima HTML katalog s cijenama; strojno čitljiv cjenik nije pronađen."
+      "napomena": "Navedena stranica je prazan rezultat pretrage, nije cjenik (ChatGPT, 21.10.2026.). Cjenik nije pronađen.",
+      "stranica": "https://www.ikoma.hr/hr/cijene/cjenik-3095/"
     },
     {
       "id": "profi-baucentar",
@@ -39,7 +41,7 @@
       "url": null,
       "status": "neprovjereno",
       "omogucen": false,
-      "napomena": "Ima web trgovinu; strojno čitljiv cjenik nije pronađen."
+      "napomena": "Dohvat vraća 503 (ChatGPT, 21.10.2026.). Strojno čitljiv cjenik nije pronađen."
     },
     {
       "id": "bacelic",
@@ -63,6 +65,81 @@
       "omogucen": false,
       "napomena": "Popis CSV/XML cjenika po poslovnici; čitač uzima najnoviji CSV svake poslovnice i datum iz naziva datoteke. ChatGPT je 21.10.2026. dohvatio stranicu (200) i datoteku od 21.10.2026.; iz ovog okruženja host je blokiran (403). Ostaje neprovjereno dok se stvarni stupci ne provjere uvozom.",
       "popis": true
+    },
+    {
+      "id": "top-alati",
+      "naziv": "Top Alati",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://top-alati.hr/prices-list",
+      "popis": true,
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "ChatGPT je 21.10.2026. preuzeo stvarni CSV poslovnice Varaždin (16834 retka, 2605 dostupno). Zaglavlje i redak prilagođeni u uvozu i testovima. Uključuje se nakon punog uvoza stvarne datoteke; iz ovog okruženja host blokiran."
+    },
+    {
+      "id": "veker",
+      "naziv": "Veker",
+      "vrsta": "trgovina",
+      "format": "xml",
+      "stranica": "https://www.veker.hr/cjenici/",
+      "popis": true,
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Stranica dostupna ChatGPT-u (200); stalni cjenik.xml nema datum, arhivske datoteke imaju GGGGMMDDTHHMMSS. Stupci XML-a još nisu viđeni."
+    },
+    {
+      "id": "vijci",
+      "naziv": "Vijci (Kralj commerce)",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://www.vijci.com/cjenik",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Dohvat vraća 503 (ChatGPT, 21.10.2026.). Identitet trgovca nije provjeren iz ovog okruženja."
+    },
+    {
+      "id": "arkor",
+      "naziv": "Arkor",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "blokirano",
+      "omogucen": false,
+      "napomena": "Dohvat vraća 403 (ChatGPT, 21.10.2026.). Službeni URL cjenika nije potvrđen."
+    },
+    {
+      "id": "fero-term",
+      "naziv": "Fero-Term",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Kandidat koji je naveo ChatGPT; službeni URL i identitet nisu potvrđeni."
+    },
+    {
+      "id": "petrokov",
+      "naziv": "Petrokov",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Kandidat koji je naveo ChatGPT; službeni URL i identitet nisu potvrđeni."
+    },
+    {
+      "id": "termometal",
+      "naziv": "Termometal",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Kandidat koji je naveo ChatGPT; službeni URL i identitet nisu potvrđeni."
     },
     {
       "id": "njuskalo",
