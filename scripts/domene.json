@@ -1,0 +1,59 @@
+{
+  "napomena": "Polazne službene domene za automatsko otkrivanje (scripts/otkrivanje.py). Domenu dodaje čovjek nakon provjere identiteta trgovca; cjenik se uključuje tek kad prođe automatsku provjeru.",
+  "domene": [
+    {
+      "domena": "gradja.hr",
+      "naziv": "Građa.hr",
+      "izvor": "web pretraga 21.10.2026., trgovina građevinskog materijala"
+    },
+    {
+      "domena": "unikomerc-uvoz.hr",
+      "naziv": "Unikomerc uvoz",
+      "izvor": "web pretraga 21.10.2026.; asortiman treba potvrditi"
+    },
+    {
+      "domena": "ikoma.hr",
+      "naziv": "IKOMA"
+    },
+    {
+      "domena": "fero-term.hr",
+      "naziv": "Fero-Term"
+    },
+    {
+      "domena": "petrokov.hr",
+      "naziv": "Petrokov"
+    },
+    {
+      "domena": "akord-zupanja.hr",
+      "naziv": "Akord Županja"
+    },
+    {
+      "domena": "katalog.gradnjainvest.hr",
+      "naziv": "Gradnja invest"
+    },
+    {
+      "domena": "mirakul-inovativna-grijanja.hr",
+      "naziv": "Mirakul inovativna grijanja"
+    },
+    {
+      "domena": "termometal.hr",
+      "naziv": "Termometal (Garešnica)"
+    },
+    {
+      "domena": "vijci.com",
+      "naziv": "Vijci (Kralj commerce)"
+    },
+    {
+      "domena": "pevex.hr",
+      "naziv": "Pevex"
+    },
+    {
+      "domena": "bauhaus.hr",
+      "naziv": "Bauhaus"
+    },
+    {
+      "domena": "bacelic.hr",
+      "naziv": "Bačelić"
+    }
+  ]
+}

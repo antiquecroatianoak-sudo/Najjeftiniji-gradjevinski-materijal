@@ -26,10 +26,13 @@ import csv
 import io
 import json
 import math
+import os
+import time
 import re
 import sys
 import unicodedata
 import urllib.parse
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
@@ -40,6 +43,8 @@ KORIJEN = Path(__file__).resolve().parent.parent
 IZVORI = KORIJEN / "scripts" / "izvori.json"
 IZLAZ = KORIJEN / "site" / "data" / "proizvodi.json"
 STANJE = KORIJEN / "site" / "data" / "stanje-izvora.json"
+# Zadnji valjani cjenik svakog izvora (ne objavljuje se; u GitHub Actions čuva se predmemorijom).
+PREDMEMORIJA = KORIJEN / ".predmemorija"
 # Oglas stariji od ovoga smatra se zastarjelim i ne prikazuje se.
 OGLAS_VRIJEDI_DANA = 7
 # Cjenik trgovca stariji od ovoga ne ulazi u usporedbu (obveza je dnevna objava, NN 101/2026).
@@ -369,6 +374,8 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
             continue
         if izvor.get("url"):
             zapis_stanja["url"] = izvor["url"]
+        if izvor.get("otkriveno"):
+            zapis_stanja["otkriveno"] = True
         try:
             sadrzaj = ucitaj(izvor)
             tekst = dekodiraj(sadrzaj) if isinstance(sadrzaj, bytes) else sadrzaj
@@ -390,6 +397,8 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
                 stanje.append({**zapis_stanja, "uspjeh": False, "greska": "nepoznat datum cjenika"})
                 continue
             zapis_stanja["datum"] = datum.isoformat()
+            if izvor.get("iz_predmemorije"):
+                zapis_stanja["iz_predmemorije"] = True  # današnji dohvat nije uspio
             if (sada.date() - datum).days > CJENIK_VRIJEDI_DANA:
                 stanje.append({**zapis_stanja, "uspjeh": False, "greska": f"zastario cjenik od {datum.isoformat()}"})
                 continue
@@ -538,19 +547,104 @@ def razlozi_izvore(izvori: list[dict], dohvati) -> list[dict]:
             if filtar and not any(f in normaliziraj(ime) for f in filtar):
                 continue
             rezultat.append({**izvor, "id": f"{izvor['id']}:{c['poslovnica']}", "naziv": f"{izvor['naziv']} · {ime}",
-                             "url": c["url"], "datum": c["datum"], "popis": False})
+                             "url": c["url"], "datum": c["datum"], "popis": False, "roditelj": izvor["id"]})
     return rezultat
 
 
-def preuzmi_url(url: str) -> bytes:
+def preuzmi_url(url: str, pokusaja: int = 3, cekanje: float = 2.0) -> bytes:
+    """Dohvat s ograničenim ponovnim pokušajima. 403/404 se ne ponavljaju: to je odbijen pristup, ne kvar."""
     zahtjev = urllib.request.Request(url, headers={"User-Agent": "najjeftiniji-gradjevinski-materijal/1 (javni cjenik)"})
-    with urllib.request.urlopen(zahtjev, timeout=120) as r:
-        return r.read()
+    for pokusaj in range(pokusaja):
+        try:
+            with urllib.request.urlopen(zahtjev, timeout=60) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403, 404, 410) or pokusaj == pokusaja - 1:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            if pokusaj == pokusaja - 1:
+                raise
+        time.sleep(cekanje * 2 ** pokusaj)
+    raise RuntimeError("nedostižno")
+
+
+# ---------- Zadnji valjani cjenik ----------
+def _datoteka_predmemorije(mapa: Path, izvor_id: str) -> Path:
+    return mapa / (re.sub(r"[^A-Za-z0-9._-]+", "_", izvor_id) + ".bin")
+
+
+def spremi_predmemoriju(mapa: Path, izvor: dict, sadrzaj: bytes, datum: str) -> None:
+    mapa.mkdir(parents=True, exist_ok=True)
+    put = _datoteka_predmemorije(mapa, izvor["id"])
+    put.with_suffix(".tmp").write_bytes(sadrzaj)
+    put.with_suffix(".tmp").replace(put)
+    indeks_put = mapa / "indeks.json"
+    indeks = json.loads(indeks_put.read_text(encoding="utf-8")) if indeks_put.exists() else {}
+    indeks[izvor["id"]] = {k: izvor.get(k) for k in ("id", "naziv", "vrsta", "format", "url", "stranica")} | {
+        "datum": datum, "roditelj": izvor.get("roditelj"), "spremljeno": datetime.now(timezone.utc).isoformat(timespec="minutes")}
+    indeks_put.write_text(json.dumps(indeks, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def ucitaj_predmemoriju(mapa: Path) -> dict:
+    indeks_put = mapa / "indeks.json"
+    return json.loads(indeks_put.read_text(encoding="utf-8")) if indeks_put.exists() else {}
+
+
+def s_predmemorijom(izvori: list[dict], ucitaj, mapa: Path):
+    """
+    Izvor koji se danas ne može dohvatiti koristi zadnji valjani cjenik s njegovim izvornim datumom.
+    Provjera starosti u obradi() zatim isključuje cjenik stariji od CJENIK_VRIJEDI_DANA.
+    Vraća (izvori, ucitaj, preuzeto) — preuzeto su današnji sadržaji za spremanje nakon uspješne obrade.
+    """
+    indeks = ucitaj_predmemoriju(mapa)
+    rezultat = []
+    for izvor in izvori:
+        if izvor.get("greska_stranice"):
+            # Popis cjenika nedostupan: zadnje poznate poslovnice tog izvora iz predmemorije.
+            spremljeni = [v for v in indeks.values() if v.get("roditelj") == izvor["id"]]
+            if spremljeni:
+                rezultat.extend({**izvor, **v, "popis": False, "greska_stranice": None, "iz_predmemorije": True}
+                                for v in spremljeni)
+            else:
+                rezultat.append(izvor)
+        else:
+            rezultat.append(izvor)
+    preuzeto = {}
+
+    def ucitaj_ili_predmemorija(izvor):
+        if not izvor.get("iz_predmemorije"):
+            try:
+                sadrzaj = ucitaj(izvor)
+                preuzeto[izvor["id"]] = sadrzaj
+                return sadrzaj
+            except Exception:
+                if izvor["id"] not in indeks:
+                    raise
+        spremljeno = indeks.get(izvor["id"])
+        if not spremljeno:
+            raise RuntimeError("dohvat nije uspio, a zadnji valjani cjenik ne postoji")
+        izvor["iz_predmemorije"] = True
+        izvor["datum"] = spremljeno["datum"]
+        return _datoteka_predmemorije(mapa, izvor["id"]).read_bytes()
+    return rezultat, ucitaj_ili_predmemorija, preuzeto
+
+
+def objavi_atomski(podaci: dict, put: Path) -> None:
+    """Novi cjenik zamjenjuje stari tek kad je cijeli zapisan i valjan."""
+    if not (podaci.get("verzija") == 2 and podaci.get("proizvodi") and podaci.get("lanci")
+            and len(podaci["lanci"]) == len(podaci.get("vrsteIzvora", [])) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", podaci["datum"])):
+        raise ValueError("cjenik nije valjan; objava preskočena")
+    privremeno = put.with_suffix(".tmp")
+    privremeno.write_text(json.dumps(podaci, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    json.loads(privremeno.read_text(encoding="utf-8"))
+    privremeno.replace(put)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--izvori", type=Path, default=IZVORI)
+    ap.add_argument("--otkriveni", type=Path, help="site/data/otkriveni.json: automatski provjereni kandidati")
+    ap.add_argument("--predmemorija", type=Path, default=PREDMEMORIJA)
     ap.add_argument("--lokalno", nargs="*", default=[], help="id=datoteka: koristi lokalnu datoteku umjesto preuzimanja")
     ap.add_argument("--datum", nargs="*", default=[], help="id=GGGG-MM-DD: datum objave cjenika s popisa datoteka izvora")
     a = ap.parse_args()
@@ -563,21 +657,36 @@ def main():
     aktivni = [i for i in svi_izvori if i.get("omogucen") and i.get("status") == "provjereno"]
     preskoceni = [{"id": i["id"], "naziv": i["naziv"], "vrsta": i.get("vrsta", "trgovina"), "status": i.get("status"),
                    "napomena": i.get("napomena", "")} for i in svi_izvori if i not in aktivni]
+    if a.otkriveni:
+        from otkrivanje import domena, izvori_iz_otkrivanja
+        poznate = {domena(i.get("stranica") or i.get("url") or "") for i in aktivni}
+        aktivni += [i for i in izvori_iz_otkrivanja(a.otkriveni) if domena(i.get("stranica") or i.get("url")) not in poznate]
     ucitaj = lambda izvor: Path(lokalno[izvor["id"]]).read_bytes() if izvor["id"] in lokalno else preuzmi_url(izvor["url"])
     dohvati_stranicu = lambda url: next((Path(v).read_bytes() for k, v in lokalno.items() if k == url), None) or preuzmi_url(url)
-    podaci, stanje = obradi(razlozi_izvore(aktivni, dohvati_stranicu), ucitaj)
+    izvori, ucitaj, preuzeto = s_predmemorijom(razlozi_izvore(aktivni, dohvati_stranicu), ucitaj, a.predmemorija)
+    podaci, stanje = obradi(izvori, ucitaj)
+    po_id = {i["id"]: i for i in izvori}
+    for s in stanje:
+        if s["uspjeh"] and s["id"] in preuzeto:
+            spremi_predmemoriju(a.predmemorija, po_id[s["id"]], preuzeto[s["id"]], s["datum"])
     STANJE.parent.mkdir(parents=True, exist_ok=True)
     STANJE.write_text(json.dumps({"azurirano": datetime.now(timezone.utc).isoformat(timespec="minutes"),
                                   "uvezeno": stanje, "nije-uvezeno": preskoceni}, ensure_ascii=False, indent=1), encoding="utf-8")
     for s in stanje:
         print(("OK " if s["uspjeh"] else "GREŠKA ") + json.dumps(s, ensure_ascii=False))
+    trgovci = {(i.get("roditelj") or i["id"]).split(":")[0] if not i.get("otkriveno") else i["id"]
+               for i in izvori if any(s["uspjeh"] and s["id"] == i["id"] for s in stanje)}
+    sazetak = (f"Trgovaca s valjanim cjenikom: {len(trgovci)} · poslovnica/izvora: {sum(s['uspjeh'] for s in stanje)} · "
+               f"ponuda: {len(podaci['proizvodi']) if podaci else 0} · iz predmemorije: {sum(1 for s in stanje if s.get('iz_predmemorije'))}")
+    print(sazetak)
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+            f.write(sazetak + "\n")
     print(f"Neuključeni izvori: {len(preskoceni)} (nisu provjereni ili su isključeni)")
     if podaci is None:
-        print("Nema provjerenih izvora s podacima; cjenik se ne objavljuje.")
-        if IZLAZ.exists():
-            IZLAZ.unlink()
+        print("Nema valjanih cjenika; postojeći cjenik se ne mijenja.")
         return 0
-    IZLAZ.write_text(json.dumps(podaci, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    objavi_atomski(podaci, IZLAZ)
     print(f"Gotovo: {len(podaci['proizvodi'])} ponuda iz {len(podaci['lanci'])} izvora -> {IZLAZ}")
     return 0
 

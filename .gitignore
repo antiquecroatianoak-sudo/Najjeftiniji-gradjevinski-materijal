@@ -4,3 +4,5 @@ __pycache__/
 
 site/data/skupine.json
 site/data/stanje-izvora.json
+.predmemorija/
+site/data/otkriveni.json

@@ -44,6 +44,7 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 | Gradnja invest | trgovina | neprovjereno | CSV u podnožju kataloga; datoteka još nije viđena. |
 | Telack | trgovina | **uključeno** | Stalni `cjenik-webshop.xml`: 470 primljeno, 470 prihvaćeno; datum iz `datum` (DD.MM.GGGG). |
 | Mirakul inovativna grijanja | trgovina | neprovjereno | XML u podnožju; oprema za grijanje. |
+| EraCommerce | trgovina | neprovjereno | Službena domena i identitet nisu potvrđeni (pretraga 21.10.2026. nije našla vezu s građevinskim materijalom); URL se ne nagađa. |
 | Njuškalo | oglasnik | blokirano | Službeni API nije pronađen; automatsko prikupljanje bez dopuštenja se ne radi. |
 | Index Oglasi | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Plavi oglasnik | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
@@ -53,6 +54,29 @@ Popisano je 19 različitih trgovaca (poslovnice istog trgovca ne broje se zasebn
 podaci o datotekama potječu iz ChatGPT-ova okruženja (verzije 44655df i e7df3c9); iz ovog razvojnog okruženja ti hostovi su blokirani.
 
 Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
+
+## Automatsko otkrivanje (`scripts/otkrivanje.py`, svaki dan u GitHub Actions)
+1. **Polazne domene**: službene domene iz `izvori.json` i `scripts/domene.json` (jedan unos po trgovcu; `www.` i
+   poddomene istog trgovca nisu različiti trgovci; ručno uključeni izvori se ne otkrivaju ponovno).
+2. **Otkrivanje** na svakoj domeni: poveznice s naslovne stranice prema stranicama cjenika i uobičajene putanje
+   (`/cjenik/`, `/cjenici/`, `/sidrene-cijene/`, `/prices-list`, `/sidrena-cijena.xml`, `/cjenik.xml`). Stranica s
+   datiranim datotekama postaje kandidat "popis", stalna datoteka kandidat "stalni". Poštuje se `robots.txt`;
+   403/404 se ne zaobilaze i ne ponavljaju.
+3. **Provjera**: kandidat se preuzme i uveze istim uvozom: datum objave (≤ 3 dana), barem 20 valjanih ponuda, dostupnost,
+   jedinice. Dokaz (URL, datum, broj primljenih/prihvaćenih/nedostupnih, s jedinicom, vrijeme provjere) ili razlog
+   odbijanja zapisuje se u `site/data/otkriveni.json` (objavljuje se uz aplikaciju).
+4. **Uključivanje**: prihvaćeni kandidati ulaze u isti dan u uvoz (`uvoz.py --otkriveni`).
+5. **Ograničenje**: bez API ključa tražilice nove *domene* ne otkrivaju se same; dodaje ih čovjek u `domene.json`.
+   Plaćena usluga nije uvedena.
+
+## Dnevni rad i pouzdanost
+- Dohvat: timeout 60 s, do 3 pokušaja uz rastuće čekanje (403/404 bez ponavljanja); greška jednog izvora ne ruši ostale.
+- Zadnji valjani cjenik svakog izvora čuva se (`.predmemorija`, GitHub Actions cache). Kad izvor ne radi, koristi se taj
+  cjenik s **izvornim datumom** i oznakom `iz_predmemorije`; stariji od 3 dana se ne uvozi.
+- Novi `proizvodi.json` zamjenjuje stari tek nakon provjere (atomska zamjena); bez valjanih cjenika objava se preskače.
+- Izvještaj u sažetku pokretanja: broj trgovaca, poslovnica, ponuda i izvora iz predmemorije.
+- Radni tok je napisan; **raspored radi tek nakon spajanja na `main` i uključivanja GitHub Pagesa**, a nijedan
+  produkcijski run još nije pokrenut.
 
 ## Uključivanje izvora (nakon 17.11.2026. ili uz dopuštenje oglasnika)
 1. Otvoriti stranicu „Objava cjenika” trgovca, preuzeti CSV/XML web trgovine ili poslovnice i provjeriti stupce.
