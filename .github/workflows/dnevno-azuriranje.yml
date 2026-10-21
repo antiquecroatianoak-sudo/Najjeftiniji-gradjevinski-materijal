@@ -20,7 +20,7 @@ jobs:
     # Objavljuje se samo glavna grana repozitorija.
     if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 110
     environment:
       name: github-pages
       url: ${{ steps.objava.outputs.page_url }}
@@ -59,11 +59,17 @@ jobs:
         timeout-minutes: 40
         run: python scripts/otkrivanje.py
 
+      - name: Cijene sa stranica proizvoda (schema.org; robots.txt, bez zaobilaženja zaštite)
+        # Greška ili vremensko ograničenje ne zaustavlja uvoz službenih cjenika; spremljeno je stanje nakon svakog trgovca.
+        continue-on-error: true
+        timeout-minutes: 30
+        run: python -u scripts/webshop.py
+
       - name: Preuzmi cjenike provjerenih izvora
         id: uvoz
         timeout-minutes: 20
         run: |
-          python scripts/uvoz.py --otkriveni site/data/otkriveni.json
+          python scripts/uvoz.py --otkriveni site/data/otkriveni.json --webshop site/data/webshop.json
           if [ -f site/data/proizvodi.json ]; then echo "ima=da" >> "$GITHUB_OUTPUT"; else echo "::notice::Nema valjanih cjenika; objava je preskočena."; fi
 
       - uses: actions/cache/save@v4
@@ -76,9 +82,9 @@ jobs:
         if: steps.uvoz.outputs.ima == 'da'
         run: node scripts/razvrstaj.cjs
 
-      - name: Revizija klasifikacije i pretrage
+      # Potvrđen gubitak, višak ili dvostruka ponuda u reviziji zaustavlja objavu (bez continue-on-error).
+      - name: Revizija klasifikacije i pretrage (uvjet za objavu)
         if: steps.uvoz.outputs.ima == 'da'
-        continue-on-error: true
         run: node scripts/revizija.cjs
 
       - uses: actions/configure-pages@v5
