@@ -269,6 +269,23 @@ def citaj_xml(tekst: str, vlastiti: dict | None = None):
         raise ValueError("XML nema zapisa s nazivom i cijenom")
 
 
+def datum_objave(vrijednost):
+    try:
+        return datetime.fromisoformat(str(vrijednost)).date()
+    except ValueError:
+        return None
+
+
+# Zaglavlje XML cjenika: <cjenik generirano="..."> ili <objekt><vremenska_oznaka>. "referentni_datum" je
+# datum sidrene cijene, ne datum cjenika.
+def datum_iz_xml(tekst: str):
+    korijen = ET.fromstring(tekst.encode("utf-8"))
+    for vrijednost in (korijen.get("generirano"), korijen.findtext("objekt/vremenska_oznaka")):
+        if vrijednost and (d := datum_objave(vrijednost.strip())):
+            return d
+    return None
+
+
 # ---------- Oglasi ----------
 def ocijeni_oglas(o: dict, sada: datetime) -> tuple[bool, str]:
     """(rangira se?, razlog). Nepotpuni oglasi ostaju vidljivi, ali nikad nisu 'najpovoljniji'."""
@@ -324,18 +341,6 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
             continue
         if izvor.get("url"):
             zapis_stanja["url"] = izvor["url"]
-        # Datum objave cjenika navodi izvor (npr. s popisa datoteka), ne vrijeme preuzimanja.
-        if izvor.get("format") != "oglasi-json":
-            try:
-                datum = datetime.fromisoformat(str(izvor.get("datum"))).date()
-            except ValueError:
-                stanje.append({**zapis_stanja, "uspjeh": False, "greska": "nepoznat datum cjenika"})
-                continue
-            zapis_stanja["datum"] = datum.isoformat()
-            if (sada.date() - datum).days > CJENIK_VRIJEDI_DANA:
-                stanje.append({**zapis_stanja, "uspjeh": False, "greska": f"zastario cjenik od {datum.isoformat()}"})
-                continue
-            datumi.append(datum)
         try:
             sadrzaj = ucitaj(izvor)
             tekst = dekodiraj(sadrzaj) if isinstance(sadrzaj, bytes) else sadrzaj
@@ -350,6 +355,17 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
         except Exception as e:  # noqa: BLE001 - jedan neispravan izvor ne ruši ostale
             stanje.append({**zapis_stanja, "uspjeh": False, "greska": str(e)[:300]})
             continue
+        # Datum objave: iz popisa datoteka ili iz zaglavlja XML-a, nikad vrijeme preuzimanja.
+        if izvor.get("format") != "oglasi-json":
+            datum = datum_objave(izvor.get("datum")) or (datum_iz_xml(tekst) if izvor.get("format") == "xml" else None)
+            if datum is None:
+                stanje.append({**zapis_stanja, "uspjeh": False, "greska": "nepoznat datum cjenika"})
+                continue
+            zapis_stanja["datum"] = datum.isoformat()
+            if (sada.date() - datum).days > CJENIK_VRIJEDI_DANA:
+                stanje.append({**zapis_stanja, "uspjeh": False, "greska": f"zastario cjenik od {datum.isoformat()}"})
+                continue
+            datumi.append(datum)
 
         idx = len(lanci)
         lanci.append(izvor["naziv"])
@@ -443,7 +459,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
 # (trgovci pišu i DD-MM-GGGG_HH-MM ili GGGGMMDDTHHMMSS)
 RE_DATOTEKA = re.compile(r"""href\s*=\s*["']([^"']+?\.(csv|xml))["']""", re.I)
 RE_DATUM_DATOTEKE = re.compile(r"[_-](\d{2})[.-](\d{2})[.-](\d{4})(?:_(\d{2})[.-](\d{2})(?:[.-](\d{2}))?)?[^/]*\.(?:csv|xml)$", re.I)
-RE_DATUM_KOMPAKTNO = re.compile(r"[_-]?(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})[^/]*\.(?:csv|xml)$", re.I)
+RE_DATUM_KOMPAKTNO = re.compile(r"[_-]?(\d{4})(\d{2})(\d{2})[T-](\d{2})(\d{2})(\d{2})?[^/]*\.(?:csv|xml)$", re.I)
 
 
 def cjenici_sa_stranice(html: str, stranica: str, oblik: str = "csv") -> list[dict]:

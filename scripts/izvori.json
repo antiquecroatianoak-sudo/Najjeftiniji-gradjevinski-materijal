@@ -41,7 +41,8 @@
       "url": null,
       "status": "neprovjereno",
       "omogucen": false,
-      "napomena": "Dohvat vraća 503 (ChatGPT, 21.10.2026.). Strojno čitljiv cjenik nije pronađen."
+      "napomena": "Ispravna domena profibaucentar.hr (ChatGPT: 200). Strojno čitljiv cjenik još nije pronađen.",
+      "stranica": "https://profibaucentar.hr/"
     },
     {
       "id": "bacelic",
@@ -84,11 +85,11 @@
       "vrsta": "trgovina",
       "format": "xml",
       "stranica": "https://www.veker.hr/cjenici/",
-      "popis": true,
-      "url": null,
+      "popis": false,
+      "url": "https://www.veker.hr/wp-content/uploads/cjenici-webshop/cjenik.xml",
       "status": "neprovjereno",
       "omogucen": false,
-      "napomena": "Stranica dostupna ChatGPT-u (200); stalni cjenik.xml nema datum, arhivske datoteke imaju GGGGMMDDTHHMMSS. Stupci XML-a još nisu viđeni."
+      "napomena": "Stalni XML web trgovine (ChatGPT: 200, 3,1 MB, 21.10.2026.). Datum iz <cjenik generirano> / <vremenska_oznaka>, nikad iz referentni_datum. Struktura provjerena na stvarnom retku; čeka puni uvoz."
     },
     {
       "id": "vijci",
@@ -119,7 +120,8 @@
       "url": null,
       "status": "neprovjereno",
       "omogucen": false,
-      "napomena": "Kandidat koji je naveo ChatGPT; službeni URL i identitet nisu potvrđeni."
+      "napomena": "Službena stranica dostupna (ChatGPT: 200). Cjenik još nije pronađen.",
+      "stranica": "https://www.fero-term.hr/"
     },
     {
       "id": "petrokov",
@@ -129,17 +131,31 @@
       "url": null,
       "status": "neprovjereno",
       "omogucen": false,
-      "napomena": "Kandidat koji je naveo ChatGPT; službeni URL i identitet nisu potvrđeni."
+      "napomena": "Službena stranica dostupna (ChatGPT: 200). Cjenik još nije pronađen.",
+      "stranica": "https://petrokov.hr/"
+    },
+    {
+      "id": "termo-metal-pakrac",
+      "naziv": "TERMO-METAL (Pakrac)",
+      "vrsta": "trgovina",
+      "format": "xml",
+      "stranica": "https://termo-metal.hr/home/cjenik/",
+      "popis": true,
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Stranica (ChatGPT: 200) vodi na današnji XML web trgovine s datumom GGGGMMDD-HHMM u nazivu. Struktura XML-a još nije viđena."
     },
     {
       "id": "termometal",
-      "naziv": "Termometal",
+      "naziv": "Termometal (Garešnica)",
       "vrsta": "trgovina",
       "format": "csv",
       "url": null,
       "status": "neprovjereno",
       "omogucen": false,
-      "napomena": "Kandidat koji je naveo ChatGPT; službeni URL i identitet nisu potvrđeni."
+      "napomena": "Termometal.hr iz Garešnice — drugi trgovac od TERMO-METAL Pakrac. Cjenik nije pronađen.",
+      "stranica": "https://termometal.hr/"
     },
     {
       "id": "njuskalo",

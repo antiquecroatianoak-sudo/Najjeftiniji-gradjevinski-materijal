@@ -179,6 +179,29 @@ assert [(x["datum"], x["url"].endswith("21-10-2026_07-53.csv")) for x in ct] == 
 assert "%20" in ct[0]["url"] and "%C5%BE" in ct[0]["url"], ct[0]["url"]
 cv = u.cjenici_sa_stranice(HTML2, "https://www.veker.hr/cjenici/", "xml")
 assert [x["datum"] for x in cv] == ["2026-10-20"], "undated cjenik.xml is ignored; dated archive file is used"
+# Veker: stvarna struktura XML-a od 21.10.2026. (ChatGPT, kosarica #4); stalni naziv datoteke, datum iz "generirano".
+VEKER = ('<?xml version="1.0" encoding="UTF-8"?><cjenik vrsta="proizvodi" generirano="2026-10-21T07:30:09+02:00">'
+         '<objekt><naziv>Veker.hr</naziv><oblik>Web trgovina</oblik><adresa></adresa><oznaka>01</oznaka><broj_pohrane>34</broj_pohrane>'
+         '<vremenska_oznaka>2026-10-21T07:30:09+02:00</vremenska_oznaka></objekt><proizvodi><proizvod><id>7093</id>'
+         '<naziv>NEXE Cement 32,5R 25Kg</naziv><sifra>09040001</sifra><marka></marka><jedinica_mjere>kom</jedinica_mjere>'
+         '<cijena_za_jedinicu_mjere>5.34</cijena_za_jedinicu_mjere><maloprodajna_cijena>5.34</maloprodajna_cijena>'
+         '<redovna_cijena>5.34</redovna_cijena><poseban_oblik_prodaje>ne</poseban_oblik_prodaje><akcijska_cijena></akcijska_cijena>'
+         '<referentni_datum>10.09.2026.</referentni_datum><dostupnost>dostupno</dostupnost>'
+         '<poveznica>https://www.veker.hr/nexe-cement-325r-25kg/</poveznica></proizvod></proizvodi></cjenik>')
+pv, stv = u.obradi([{"id": "v", "naziv": "Veker", "format": "xml", "url": "https://www.veker.hr/wp-content/uploads/cjenici-webshop/cjenik.xml"}],
+                   lambda i: VEKER, sada)
+assert stv[0]["uspjeh"] and stv[0]["datum"] == "2026-10-21" and stv[0]["prihvaceno"] == 1, stv
+nexe = pv["proizvodi"][0]
+assert nexe[0] == "NEXE Cement 32,5R 25Kg" and nexe[2:4] == [25, "kg"] and nexe[5] == [0, 5.34] and nexe[6] == "32,5 R", nexe
+assert pv["datum"] == "2026-10-21"
+staro = VEKER.replace('generirano="2026-10-21', 'generirano="2026-10-01').replace("<vremenska_oznaka>2026-10-21", "<vremenska_oznaka>2026-10-01")
+assert u.obradi([{"id": "v", "naziv": "Veker", "format": "xml"}], lambda i: staro, sada)[1][0]["greska"] == "zastario cjenik od 2026-10-01"
+bez = VEKER.replace(' generirano="2026-10-21T07:30:09+02:00"', '').replace("<vremenska_oznaka>2026-10-21T07:30:09+02:00</vremenska_oznaka>", "")
+assert u.obradi([{"id": "v", "naziv": "Veker", "format": "xml"}], lambda i: bez, sada)[1][0]["greska"] == "nepoznat datum cjenika", "referentni_datum is never the price date"
+# TERMO-METAL Pakrac: datum GGGGMMDD-HHMM u nazivu.
+ctm = u.cjenici_sa_stranice('<a href="https://termo-metal.hr/sidrena/cjenik/internet-trgovina_trg-76-bataljuna-7-34550-pakrac_01_28_20261021-0110.xml">x</a>',
+                            "https://termo-metal.hr/home/cjenik/", "xml")
+assert [x["datum"] for x in ctm] == ["2026-10-21"]
 # Bez izvora nema objave
 assert u.obradi([], lambda i: b"", sada)[0] is None
 print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source")

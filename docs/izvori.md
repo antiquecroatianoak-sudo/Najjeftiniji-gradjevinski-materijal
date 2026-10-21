@@ -27,23 +27,24 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 |---|---|---|---|
 | Gavroprom | trgovina | neprovjereno | Stranica i CSV od 21.10.2026. dostupni ChatGPT-u (3633 retka). Uvoz prilagođen stvarnom zaglavlju i retcima. Čeka puni uvoz stvarne datoteke. |
 | Top Alati | trgovina | neprovjereno | CSV poslovnice Varaždin od 21.10.2026. dostupan ChatGPT-u (16834 retka, 2605 dostupno). Uvoz prilagođen stvarnom zaglavlju i retku. Čeka puni uvoz. |
-| Veker | trgovina | neprovjereno | Stranica dostupna (200); arhivski XML s datumom u nazivu. Stupci XML-a još nisu viđeni. |
+| Veker | trgovina | neprovjereno | Stalni `cjenik.xml` (200, 3,1 MB, 21.10.2026.); datum iz `generirano`/`vremenska_oznaka`, ne iz `referentni_datum`. Struktura provjerena na stvarnom retku; čeka puni uvoz. |
 | Pevex | trgovina | blokirano | Službena stranica sidrene-cijene vodi na `store-3/aktualni.csv`; dohvat 403. |
 | Bauhaus | trgovina | blokirano | Dohvat 403. Javni cjenik obvezan od 17.11.2026. |
 | Bačelić | trgovina | blokirano | Stranica navodi CSV/XML; dohvat 403. |
 | Arkor | trgovina | blokirano | Dohvat 403; URL cjenika nije potvrđen. |
-| Profi baucentar | trgovina | neprovjereno | Dohvat 503; cjenik nije pronađen. |
+| Profi baucentar | trgovina | neprovjereno | Ispravna domena profibaucentar.hr (200); cjenik nije pronađen. |
 | Vijci (Kralj commerce) | trgovina | neprovjereno | Dohvat 503; identitet nije provjeren. |
 | IKOMA | trgovina | neprovjereno | Navedena stranica nije cjenik (prazna pretraga). |
-| Fero-Term | trgovina | neprovjereno | Kandidat; URL i identitet nisu potvrđeni. |
-| Petrokov | trgovina | neprovjereno | Kandidat; URL i identitet nisu potvrđeni. |
-| Termometal | trgovina | neprovjereno | Kandidat; URL i identitet nisu potvrđeni. |
+| Fero-Term | trgovina | neprovjereno | fero-term.hr dostupna (200); cjenik nije pronađen. |
+| Petrokov | trgovina | neprovjereno | petrokov.hr dostupna (200); cjenik nije pronađen. |
+| TERMO-METAL (Pakrac) | trgovina | neprovjereno | termo-metal.hr/home/cjenik (200) vodi na današnji XML s datumom u nazivu; struktura još nije viđena. |
+| Termometal (Garešnica) | trgovina | neprovjereno | Drugi trgovac (termometal.hr); cjenik nije pronađen. |
 | Njuškalo | oglasnik | blokirano | Službeni API nije pronađen; automatsko prikupljanje bez dopuštenja se ne radi. |
 | Index Oglasi | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Plavi oglasnik | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Facebook Marketplace | oglasnik | blokirano | Zahtijeva prijavu; prijave i CAPTCHA se ne zaobilaze. |
 
-Popisano je 13 različitih trgovaca (poslovnice istog trgovca ne broje se zasebno). **Uključeno: 0.** Statusi 403/503 i
+Popisano je 14 različitih trgovaca (poslovnice istog trgovca ne broje se zasebno). **Uključeno: 0.** Statusi 403/503 i
 podaci o datotekama potječu iz ChatGPT-ova okruženja; iz ovog razvojnog okruženja svi ti hostovi su blokirani.
 
 Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
