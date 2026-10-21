@@ -78,8 +78,20 @@ app = scenarij([
 r = vm.runInContext("prikaziJednuTrgovinu()", app);
 assert.equal(r.potpune.length, 0);
 assert.equal(app.__cvorovi["nema-potpune"].hidden, false, "states clearly that no store has everything");
-assert.equal(r.nepotpune.length, 2);
+assert.equal(r.nepotpune.length, 3, "including the store with 0/2");
 assert(r.nepotpune.every((x) => !x.najpovoljniji));
 assert.equal(r.kombinacija, 18 + 9, "the multi-store combination still exists across two stores");
+// Cijela pakiranja odlučuju, ne jedinična cijena (isti nalaz kao košarica #11): 50 kg cementa.
+// A: 40 kg za 9,00 € (0,225 €/kg) → 2 vreće = 18,00 €; A ima i 25 kg za 6,00 € (0,24 €/kg) → 2 vreće = 12,00 €.
+app = scenarij([P("Cement CEM II 40 kg", 40, "kg", [0, 9]), P("Cement CEM II 25 kg", 25, "kg", [0, 6, 1, 6.5])],
+  [{ naziv: "Cement", kom: 1, trazeno: { iznos: 50, jedinica: "kg" } }]);
+r = vm.runInContext("prikaziJednuTrgovinu()", app);
+assert.deepEqual(Array.from(r.potpune, (x) => [x.ime, x.ukupno]), [["A", 12], ["B", 13]], "A: 2 × 25 kg, not 2 × 40 kg");
+assert.equal(r.kombinacija, 12);
+assert.equal(r.potpune[0].ukupno, app.__kartice("A"), "opened A cards equal its row");
+assert.equal(vm.runInContext("stanje.popis[0].trazeno.iznos", app), 50);
+// Trgovina bez ijedne stavke (0/Y) prikazana je odvojeno, bez iznosa.
+assert.equal(`${r.nepotpune[0].ime} ${r.nepotpune[0].pokriveno}/${r.nepotpune[0].stavki}`, "C 0/1");
+assert.equal(app.__cvorovi["trgovine-nepotpune"].children[0].children[0].children[1].textContent, "—");
 console.log("ONE-STORE PASS: complete vs incomplete, X/Y and missing items, ties, cents, whole packs, kept quantity, "
-  + "row = opened cards, difference to combination, no complete store");
+  + "row = opened cards, difference to combination, no complete store, whole-pack cost over unit price, 0/Y stores");
