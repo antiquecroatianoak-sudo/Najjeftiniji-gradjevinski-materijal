@@ -23,6 +23,7 @@ Pokretanje:  python scripts/uvoz.py [--izvori put/izvori.json] [--lokalno datote
 
 import argparse
 import csv
+import html.entities
 import io
 import json
 import math
@@ -274,8 +275,20 @@ def citaj_csv(tekst: str, vlastiti: dict | None = None):
             yield zapis
 
 
+def popravi_xml(tekst: str) -> str:
+    """HTML entiteti (&nbsp;, &scaron;) i goli "&" u nazivima čine XML neispravnim; pretvaraju se u valjani XML."""
+    def entitet(m):
+        ime = m.group(1)
+        if ime in ("amp", "lt", "gt", "quot", "apos"):
+            return m.group(0)
+        kod = html.entities.name2codepoint.get(ime)
+        return chr(kod) if kod else "&amp;" + ime + ";"
+    tekst = re.sub(r"&([A-Za-z][A-Za-z0-9]*);", entitet, tekst)
+    return re.sub(r"&(?![A-Za-z][A-Za-z0-9]*;|#\d+;|#x[0-9A-Fa-f]+;)", "&amp;", tekst)
+
+
 def citaj_xml(tekst: str, vlastiti: dict | None = None):
-    korijen = ET.fromstring(tekst.encode("utf-8") if isinstance(tekst, str) else tekst)
+    korijen = ET.fromstring(popravi_xml(tekst).encode("utf-8"))
     nadjeno = False
     for el in korijen.iter():
         djeca = list(el)
@@ -311,7 +324,7 @@ def datum_objave(vrijednost):
 # Zaglavlje XML cjenika: atribut generirano / generated / datum ili <objekt><vremenska_oznaka>. "referentni_datum" je
 # datum sidrene cijene, ne datum cjenika.
 def datum_iz_xml(tekst: str):
-    korijen = ET.fromstring(tekst.encode("utf-8"))
+    korijen = ET.fromstring(popravi_xml(tekst).encode("utf-8"))
     for vrijednost in (korijen.get("generirano"), korijen.get("generated"), korijen.get("datum"),
                        korijen.findtext("objekt/vremenska_oznaka")):
         if vrijednost and (d := datum_objave(vrijednost.strip())):
@@ -469,6 +482,12 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
                 zapis["cijene"][idx] = cijena
             if zapis["najniza"] is None or cijena < zapis["najniza"]:
                 zapis["najniza"], zapis["naziv"], zapis["marka"] = cijena, naziv, marka
+        if prihvaceno == 0:
+            # Cjenik bez ijedne dostupne ponude ne postaje prazna trgovina u aplikaciji.
+            lanci.pop(); vrste.pop()
+            stanje.append({**zapis_stanja, "uspjeh": False, "greska": "nema dostupnih ponuda", "primljeno": primljeno,
+                           "nedostupno": nedostupno, "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata})
+            continue
         stanje.append({**zapis_stanja, "uspjeh": True, "primljeno": primljeno, "prihvaceno": prihvaceno,
                        "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata,
                        "neusporedeno": neuspordeno, "nedostupno": nedostupno})
@@ -674,8 +693,10 @@ def main():
                                   "uvezeno": stanje, "nije-uvezeno": preskoceni}, ensure_ascii=False, indent=1), encoding="utf-8")
     for s in stanje:
         print(("OK " if s["uspjeh"] else "GREŠKA ") + json.dumps(s, ensure_ascii=False))
-    trgovci = {(i.get("roditelj") or i["id"]).split(":")[0] if not i.get("otkriveno") else i["id"]
-               for i in izvori if any(s["uspjeh"] and s["id"] == i["id"] for s in stanje)}
+    from otkrivanje import domena
+    uspjesni = {s["id"] for s in stanje if s["uspjeh"]}
+    # Trgovac = domena (poslovnice istog trgovca broje se jednom).
+    trgovci = {domena(i.get("stranica") or i.get("url") or i["id"]) for i in izvori if i["id"] in uspjesni}
     sazetak = (f"Trgovaca s valjanim cjenikom: {len(trgovci)} · poslovnica/izvora: {sum(s['uspjeh'] for s in stanje)} · "
                f"ponuda: {len(podaci['proizvodi']) if podaci else 0} · iz predmemorije: {sum(1 for s in stanje if s.get('iz_predmemorije'))}")
     print(sazetak)

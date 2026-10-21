@@ -83,8 +83,8 @@ assert not st["pokvaren"]["uspjeh"] and "naziv i cijena" in st["pokvaren"]["gres
 assert st["a"]["prihvaceno"] == 4 and st["a"]["odbaceno"] == 1
 assert st["o2"]["duplikata"] == 1, "mirrored listing on a second classifieds site is deduplicated"
 assert st["o1"]["zastarjelo"] == 2, "stale and sold listings are removed"
-assert podaci["lanci"] == ["Trgovina A", "Trgovina B", "Oglasnik 1", "Oglasnik 2"]
-assert podaci["vrsteIzvora"] == ["trgovina", "trgovina", "oglasnik", "oglasnik"]
+assert podaci["lanci"] == ["Trgovina A", "Trgovina B", "Oglasnik 1"], "a source left with only duplicates adds no store"
+assert podaci["vrsteIzvora"] == ["trgovina", "trgovina", "oglasnik"]
 po_nazivu = {}
 for p in podaci["proizvodi"]:
     po_nazivu.setdefault(p[0], []).append(p)
@@ -228,6 +228,19 @@ assert u.mjera("", "kom", 9.0, None, "Libela aluminijska 60 cm") == (1.0, "kom")
 assert u.mjera("", "kg", 9.0, None, "Čekić 500 g") is None, "a tool sold per kg is not comparable"
 assert u.mjera("25", "kg", 5.0, None, "Cement 25 kg") == (25, "kg"), "materials are unaffected"
 assert u.mjera("", "kom", 5.56, None, "CEMENT 25KG ALPACEM") == (25, "kg")
+# Stvarni nalazi probnog pokretanja na GitHubu 21.10.2026.: HTML entiteti i goli "&" u XML-u, poslovnice bez dostupnih ponuda.
+X = ('<cjenik generated="2026-10-21T05:00:00+00:00"><proizvod><naziv>Ljepilo&nbsp;C2TE S1 25 kg</naziv><mpc>9,90</mpc>'
+     '<jedinica_mjere>kom</jedinica_mjere></proizvod><proizvod><naziv>Vijci & tiple 6 mm</naziv><mpc>2,10</mpc>'
+     '<jedinica_mjere>kom</jedinica_mjere></proizvod><proizvod><naziv>Kit &amp; silikon &scaron;</naziv><mpc>4,00</mpc></proizvod></cjenik>')
+px, stx = u.obradi([{"id": "x", "naziv": "X", "format": "xml"}], lambda i: X, sada)
+assert stx[0]["uspjeh"] and stx[0]["prihvaceno"] == 3, stx
+assert sorted(p[0] for p in px["proizvodi"]) == ["Kit & silikon š", "Ljepilo\xa0C2TE S1 25 kg", "Vijci & tiple 6 mm"]
+SVE_NEDOSTUPNO = GAVRO.replace('"dostupan"', '"nedostupan"')
+p0, st0 = u.obradi([{"id": "z", "naziv": "Z", "format": "csv", "datum": "2026-10-21"},
+                    {"id": "g", "naziv": "G", "format": "csv", "datum": "2026-10-21"}],
+                   lambda i: SVE_NEDOSTUPNO if i["id"] == "z" else GAVRO, sada)
+assert st0[0]["uspjeh"] is False and st0[0]["greska"] == "nema dostupnih ponuda"
+assert p0["lanci"] == ["G"] and all(p[5][0] == 0 for p in p0["proizvodi"]), "no empty store, indexes stay consistent"
 # Bez izvora nema objave
 assert u.obradi([], lambda i: b"", sada)[0] is None
 print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source")
