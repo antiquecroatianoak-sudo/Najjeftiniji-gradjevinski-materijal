@@ -20,6 +20,18 @@ assert u.mjera("", "", 12.0, None, "Pločica 60x60 cm") is None
 assert u.mjera("", "m", 3.2, None, "PVC cijev 110 mm") == (1.0, "m"), "price per metre; 110 mm is the diameter"
 assert u.mjera("", "kom", 30.0, None, "Cement 4x25 kg") == (100, "kg")
 assert u.mjera("", "", 5.0, None, "Čekić") is None
+# Djelomičan komad ("2,5" kom) nije količina: odlučuje naziv; bez količine u nazivu nema poretka.
+assert u.mjera("2,5", "kom", 7.5, None, "Ljepilo 2,5 kg") == (2.5, "kg") and u.mjera("0,5", "kom", 3.0, None, "Kist") is None
+# Cijena za jedinicu mjere trgovca mora odgovarati cijeni i količini (do zaokruživanja); inače se ponuda ne rangira.
+assert u.jedinicna_se_slaze([8.0], 0.32, (25, "kg")) and u.jedinicna_se_slaze([7.99], 0.32, (25, "kg"))
+assert u.jedinicna_se_slaze([8.0], 8.0, (25, "kg")), "unit price equal to the price (per pack) is accepted"
+assert u.jedinicna_se_slaze([9.0, 8.0], 0.36, (25, "kg")), "regular price matches"
+assert not u.jedinicna_se_slaze([8.0], 0.56, (25, "kg")) and u.jedinicna_se_slaze([8.0], None, (25, "kg"))
+_cj = "Naziv;Barkod;Neto količina;Jedinica mjere;MPC;Cijena za jedinicu mjere\nCement 25 kg;3850000000017;25;kg;8,00;0,56\nGips 20 kg;3850000000024;20;kg;6,00;0,30\n"
+_pod, _st = u.obradi([{"id": "j", "naziv": "J", "format": "csv", "datum": "2026-10-21"}], lambda i: _cj, datetime(2026, 10, 21, 9, tzinfo=timezone.utc))
+_po = {p[0]: p for p in _pod["proizvodi"]}
+assert _po["Cement 25 kg"][3] == "" and _po["Gips 20 kg"][2:4] == [20, "kg"], _po
+assert _st[0]["proturjecna_jedinicna"] == 1 and _st[0]["primjeri_proturjecnih"][0]["jedinicna"] == "0,56", _st[0]
 
 # Specifikacija razdvaja neusporedive proizvode
 assert u.specifikacija("Stiropor EPS 100 10 cm", "m2") == "EPS 100 · 100 mm"

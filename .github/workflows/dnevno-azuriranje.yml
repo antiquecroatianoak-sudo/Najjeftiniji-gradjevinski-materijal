@@ -148,7 +148,7 @@ jobs:
           ok = [s for s in st["uvezeno"] if s["uspjeh"]]
           print(f"Uspješnih izvora: {len(ok)} od {len(st['uvezeno'])}")
           for s in st["uvezeno"]:
-              print(("OK " if s["uspjeh"] else "-- ") + json.dumps({k: s.get(k) for k in ("naziv", "url", "datum", "primljeno", "prihvaceno", "spojeno_u_izvoru", "ponuda_u_aplikaciji", "nedostupno", "odbaceno", "negradjevinsko", "iz_predmemorije", "danasnja_greska", "greska") if s.get(k) is not None}, ensure_ascii=False))
+              print(("OK " if s["uspjeh"] else "-- ") + json.dumps({k: s.get(k) for k in ("naziv", "url", "datum", "primljeno", "prihvaceno", "spojeno_u_izvoru", "ponuda_u_aplikaciji", "nedostupno", "odbaceno", "negradjevinsko", "proturjecna_jedinicna", "primjeri_proturjecnih", "iz_predmemorije", "danasnja_greska", "greska") if s.get(k) is not None}, ensure_ascii=False))
           print("Brojke: " + json.dumps(st["brojke"], ensure_ascii=False))
           p = Path("site/data/proizvodi.json")
           if p.exists():

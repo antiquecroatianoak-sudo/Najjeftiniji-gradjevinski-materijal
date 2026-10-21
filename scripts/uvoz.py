@@ -160,6 +160,22 @@ def je_alat(naziv: str) -> bool:
     return bool(RE_ALAT.search(normaliziraj(naziv)))
 
 
+def jedinicna_se_slaze(cijene: list[float], jedinicna: float | None, m: tuple[float, str] | None) -> bool:
+    """
+    Slaže li se cijena za jedinicu mjere koju je trgovac objavio s cijenom i prepoznatom količinom (samo zaokruživanje
+    na 2 decimale). Prihvaća se i cijena za jedinicu jednaka cijeni (cijena po komadu/pakiranju). Bez jedinične cijene
+    ili količine nema se s čim usporediti.
+    """
+    if not jedinicna or not m or m[1] == "kom":
+        return True
+    return any(abs(jedinicna - c / m[0]) <= 0.01 + 0.005 / m[0] + 1e-9 or abs(jedinicna - c) <= 0.01 + 1e-9 for c in cijene)
+
+
+def cijeli_komadi(r):
+    """Djelomičan komad ("2,5" kom) nije količina nego pogrešno upisana jedinica."""
+    return r if not r or r[1] != "kom" or r[0] == int(r[0]) else None
+
+
 def mjera(kolicina: str, jedinica: str, cijena: float | None, jedinicna: float | None, naziv: str):
     """
     (iznos, osnovna jedinica) ili None. Redoslijed: neto količina + jedinica mjere iz cjenika,
@@ -167,11 +183,12 @@ def mjera(kolicina: str, jedinica: str, cijena: float | None, jedinicna: float |
     """
     jedinica = (jedinica or "").strip().lower().rstrip(".")
     broj = u_broj(kolicina)
+    djelomican = bool(broj and JEDINICE.get(jedinica, ("",))[0] == "kom" and broj != int(broj))
     if broj and jedinica in JEDINICE:
-        if (r := u_osnovnu(broj, jedinica)) and not (r[1] == "kom" and r[0] == 1):
+        if (r := cijeli_komadi(u_osnovnu(broj, jedinica))) and not (r[1] == "kom" and r[0] == 1):
             return r
     elif kolicina and (m := RE_JEDNO.search(str(kolicina))):
-        if r := u_osnovnu(u_broj(m.group(1)) or 0, m.group(2)):
+        if r := cijeli_komadi(u_osnovnu(u_broj(m.group(1)) or 0, m.group(2))):
             return r
     # Za "kom" cijena za jedinicu mjere obično je po kg/l/m², a ta jedinica nije zapisana.
     if cijena and jedinicna and jedinica in JEDINICE and JEDINICE[jedinica][0] != "kom":
@@ -181,10 +198,10 @@ def mjera(kolicina: str, jedinica: str, cijena: float | None, jedinicna: float |
         if 0 < iznos <= NAJVISE[osnovna] and not (osnovna == "kom" and abs(iznos - 1) < 1e-9):
             return iznos, osnovna
     if je_alat(naziv):
-        return (1.0, "kom") if jedinica in ("kom", "komad", "kos") else None
+        return (1.0, "kom") if jedinica in ("kom", "komad", "kos") and not djelomican else None
     if r := iz_naziva(naziv):
         return r
-    if jedinica in JEDINICE:
+    if jedinica in JEDINICE and not djelomican:
         osnovna, faktor = JEDINICE[jedinica]
         if faktor == 1:
             return 1.0, osnovna  # cijena je za jednu jedinicu mjere (vaga, metraža, komad)
@@ -456,6 +473,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
         vrste.append(izvor.get("vrsta", "trgovina"))
         datumi_lanaca.append(zapis_stanja.get("datum", ""))
         primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = nedostupno = negradjevinsko = 0
+        proturjecna_jedinicna, primjeri_proturjecnih = 0, []
         spojeno_u_izvoru = barkod_druga_sifra = zasebne_varijante = 0
         sifre_barkoda: dict[str, str] = {}
         for s in stavke:
@@ -531,6 +549,12 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                 # osim kad specifikacija (dimenzije, promjer, razred) određuje što je jedan komad.
                 if m == (1.0, "kom") and not u_broj(s.get("kolicina")) and not spec:
                     m = None
+                # Cijena za jedinicu mjere trgovca proturječi cijeni i količini: količina nije potvrđena, ponuda se ne rangira.
+                if not jedinicna_se_slaze(cijene, u_broj(s.get("jedinicna")), m):
+                    proturjecna_jedinicna += 1
+                    if len(primjeri_proturjecnih) < 5:
+                        primjeri_proturjecnih.append({k: s.get(k) for k in ("naziv", "kolicina", "jedinica", "cijena", "posebna", "jedinicna")})
+                    m = None
                 barkod = valjan_barkod(s.get("barkod"))
                 sifra = (s.get("sifra") or "").strip()
                 kljuc = barkod or f"{izvor['id']}:{sifra or normaliziraj(naziv)}"
@@ -574,7 +598,9 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                        "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata,
                        "neusporedeno": neuspordeno, "nedostupno": nedostupno, "spojeno_u_izvoru": spojeno_u_izvoru,
                        "barkod_druga_sifra": barkod_druga_sifra, "zasebne_varijante": zasebne_varijante,
-                       **({"negradjevinsko": negradjevinsko} if izvor.get("samo_gradjevinski") else {}), "lanac": idx})
+                       **({"negradjevinsko": negradjevinsko} if izvor.get("samo_gradjevinski") else {}),
+                       **({"proturjecna_jedinicna": proturjecna_jedinicna, "primjeri_proturjecnih": primjeri_proturjecnih}
+                          if proturjecna_jedinicna else {}), "lanac": idx})
 
     proizvodi = []
     for z in svi.values():
