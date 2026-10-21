@@ -36,7 +36,7 @@ WEB = {
     # c.hr: cjenik je zastario.
     "https://c.hr/": b'<a href="https://c.hr/cjenik.xml">XML</a>',
     "https://c.hr/cjenik.xml": xml("2026-10-01T05:00:00+00:00"),
-    # f.hr: premalo valjanih ponuda.
+    # f.hr: mali izvor (3 ponude) je valjan, uz napomenu za pregled.
     "https://f.hr/sidrena-cijena.xml": xml("2026-10-21T05:00:00+00:00", n=3),
     # e.hr: robots.txt zabranjuje cjenik.
     "https://e.hr/robots.txt": b"User-agent: *\nDisallow: /\n",
@@ -70,11 +70,11 @@ assert rezultati["b.hr"]["prihvacen"] and rezultati["b.hr"]["tip"] == "stalni" a
 assert not rezultati["c.hr"]["prihvacen"] and rezultati["c.hr"]["razlog"] == "zastario cjenik od 2026-10-01"
 assert rezultati["d.hr"] is None, "403 everywhere: nothing found, no bypass"
 assert rezultati["e.hr"] is None and "https://e.hr/cjenik.xml" not in dohvaceno, "robots.txt is respected"
-assert not rezultati["f.hr"]["prihvacen"] and rezultati["f.hr"]["razlog"].startswith("premalo valjanih ponuda")
+assert rezultati["f.hr"]["prihvacen"] and rezultati["f.hr"]["napomena"] == "mali izvor (3 ponuda)", rezultati["f.hr"]
 
 with tempfile.TemporaryDirectory() as tmp:
     tmp = Path(tmp)
-    (tmp / "otkriveni.json").write_text(json.dumps({"kandidati": [{**v, "naziv": k} for k, v in rezultati.items() if v]}))
+    (tmp / "otkriveni.json").write_text(json.dumps({"kandidati": [{**v, "naziv": k} for k, v in rezultati.items() if v and k != "f.hr"]}))
     izvori = o.izvori_iz_otkrivanja(tmp / "otkriveni.json")
     assert [i["naziv"] for i in izvori] == ["a.hr", "b.hr"], "only validated candidates are included"
 
@@ -149,8 +149,29 @@ assert all(n["izvor"] == "imenik imenik.hr" for n in nove)
 rez = o.dedupliciraj(o.run(nove, dohvati_i, lambda url: True, sada))
 po = {r["domena"]: r for r in rez}
 assert po["novi.hr"]["prihvacen"] and po["novi.hr"]["udio_gradjevinskog"] == 1.0, po["novi.hr"]
-assert not po["hrana.hr"]["prihvacen"] and po["hrana.hr"]["razlog"].startswith("asortiman nije građevinski"), po["hrana.hr"]
-assert not po["isti.hr"]["prihvacen"] and po["isti.hr"]["razlog"] == "isti trgovac kao već prihvaćena domena", po["isti.hr"]
+assert not po["hrana.hr"]["prihvacen"] and po["hrana.hr"]["za_pregled"] and "izdvojen za pregled" in po["hrana.hr"]["razlog"], po["hrana.hr"]
+# Isti naslov i broj ponuda nisu dokaz istog trgovca: oba ostaju, drugi je označen za pregled.
+assert po["isti.hr"]["prihvacen"] and po["isti.hr"]["moguci_duplikat"] == "novi.hr", po["isti.hr"]
+# Potvrđen isti identitet (OIB) na dvije domene: jedan trgovac.
+oib = o.dedupliciraj([{"domena": "x.hr", "prihvacen": True, "oib": "1"}, {"domena": "x-shop.hr", "prihvacen": True, "oib": "1"},
+                      {"domena": "y.hr", "prihvacen": True, "oib": "2"}])
+assert [r["prihvacen"] for r in oib] == [True, False, True] and oib[1]["razlog"] == "isti trgovac (OIB 1) kao x.hr"
+# Mješovita trgovina: malo građevinskih artikala (< 10 %) → izvor je valjan, uvoze se samo građevinski artikli.
+def mjesovito():
+    stavke = [f"Mlijeko 1 l v{i}" for i in range(40)] + ["Ljepilo za pločice C2TE 25 kg", "Cement CEM II 25 kg"]
+    return ('<cjenik generated="2026-10-21T05:00:00+00:00">' + "".join(
+        f"<proizvod><naziv>{n}</naziv><sifra>{i}</sifra><maloprodajna_cijena>{2 + i / 10:.2f}</maloprodajna_cijena></proizvod>"
+        for i, n in enumerate(stavke)) + "</cjenik>").encode()
+M = {"https://mjes.hr/": b"<title>Mjes</title>", "https://mjes.hr/sidrena-cijena.xml": mjesovito()}
+rm = o.run([{"domena": "mjes.hr", "naziv": "mjes.hr", "pocetna": "https://mjes.hr/", "izvor": "imenik t.hr"}],
+           lambda url: M[url] if url in M else (_ for _ in ()).throw(OSError("HTTP Error 404")), lambda url: True, sada)[0]
+assert rm["prihvacen"] and rm["samo_gradjevinski"] and rm["gradjevinskih"] == 2 and "mješovita trgovina" in rm["napomena"], rm
+with tempfile.TemporaryDirectory() as tmp:
+    (Path(tmp) / "o.json").write_text(json.dumps({"kandidati": [rm]}))
+    iz = o.izvori_iz_otkrivanja(Path(tmp) / "o.json")
+    assert iz[0]["samo_gradjevinski"]
+    pm, sm = u.obradi(iz, lambda i: M[i["url"]], sada)
+    assert len(pm["proizvodi"]) == 2 and sm[0]["negradjevinsko"] == 40, sm
 # Neobradiva datoteka vraća uzorak za dijagnozu.
 pokvaren = o.provjeri({"domena": "p.hr", "tip": "stalni", "url": "https://p.hr/x.xml", "format": "xml"},
                       lambda url: b"<html><body>Prijava</body>", sada)
@@ -179,7 +200,42 @@ assert [n["domena"] for n in nove2] == ["novi2.hr"] and pregled["unutarnjih_stra
 ugradjeno = b'<script>var t=[{"web":"https:\\/\\/www.json-trg.hr\\/"},{"w":"tekst-trg.hr"}]</script><p>info@mail-trg.hr</p><a href="/x?u=https%3A%2F%2Fkodirano.hr">x</a>'
 nove3 = o.domene_iz_imenika("https://im3.hr/", lambda url: ugradjeno, set())
 assert [n["domena"] for n in nove3] == ["json-trg.hr", "tekst-trg.hr"], nove3
+
+# Naslovna izravno povezuje jedini datirani CSV, bez stranice cjenika: kandidat ostaje, s datumom iz naziva.
+H = {"https://h.hr/": b'<a href="/files/internet-trgovina_Ulica_1_H_01_3_21.10.2026_07.00.00.csv">Cjenik</a>',
+     "https://h.hr/files/internet-trgovina_Ulica_1_H_01_3_21.10.2026_07.00.00.csv": csv(22)}
+dh = lambda url: H[url] if url in H else (_ for _ in ()).throw(OSError("HTTP Error 404"))
+kh = o.otkrij("https://h.hr/", dh)
+assert [k["tip"] for k in kh] == ["popis"] and kh[0]["stranica"] == "https://h.hr/", kh
+ph = o.provjeri(kh[0], dh, sada)
+assert ph["prihvacen"] and ph["datum"] == "2026-10-21" and ph["prihvaceno"] == 22, ph
+# XML po sadržaju: proizvodni feed i sitemap nisu odbačeni po nazivu, nego zabilježeni kao nepodržan format s URL-om.
+F = {"https://f2.hr/": b'<a href="/feed/products.xml">feed</a><a href="/sitemap.xml">s</a>',
+     "https://f2.hr/feed/products.xml": b'<?xml version="1.0"?><rss xmlns:g="http://base.google.com/ns/1.0"><channel><item><g:price>9.90 EUR</g:price></item></channel></rss>',
+     "https://f2.hr/sitemap.xml": b'<?xml version="1.0"?><urlset><url><loc>https://f2.hr/</loc></url></urlset>'}
+df = lambda url: F[url] if url in F else (_ for _ in ()).throw(OSError("HTTP Error 404"))
+kf = o.otkrij("https://f2.hr/", df)
+assert sorted(k["url"] for k in kf) == ["https://f2.hr/feed/products.xml", "https://f2.hr/sitemap.xml"], kf
+pf = {k["url"]: o.provjeri(k, df, sada) for k in kf}
+assert pf["https://f2.hr/feed/products.xml"]["razlog"].startswith("nepodržan format: proizvodni feed"), pf
+assert pf["https://f2.hr/feed/products.xml"]["nepodrzano"]["url"] == "https://f2.hr/feed/products.xml"
+assert pf["https://f2.hr/sitemap.xml"]["razlog"] == "nepodržan format: sitemap"
+# Trajni red: uz male limite, više pokretanja pregleda sve podstranice i sve domene imenika.
+stare = (o.NAJVISE_STRANICA_IMENIKA, o.NAJVISE_NOVIH)
+o.NAJVISE_STRANICA_IMENIKA, o.NAJVISE_NOVIH = 2, 2
+IM = {"https://im4.hr/": "".join(f'<a href="/t/{i}">t</a>' for i in range(5)).encode()}
+IM.update({f"https://im4.hr/t/{i}": f'<a href="https://trg{i}.hr/">w</a>'.encode() for i in range(5)})
+red = {"imenici": {}, "domene": [], "pomak_domena": 0, "prihvacene": []}
+pregledane = set()
+for _ in range(6):
+    danas, _pr = o.trgovci_iz_imenika_s_redom([{"url": "https://im4.hr/"}], lambda url: IM[url], set(), red)
+    pregledane |= {d["domena"] for d in danas}
+assert pregledane == {f"trg{i}.hr" for i in range(5)} and len(red["domene"]) == 5, (pregledane, red)
+o.azuriraj_red(red, [{"domena": "trg0.hr", "prihvacen": True}])
+danas, _pr = o.trgovci_iz_imenika_s_redom([{"url": "https://im4.hr/"}], lambda url: IM[url], set(), red)
+assert "trg0.hr" in {d["domena"] for d in danas}, "accepted directory domains are checked every day"
+o.NAJVISE_STRANICA_IMENIKA, o.NAJVISE_NOVIH = stare
 print("DISCOVERY PASS: link + known-path discovery, validation, duplicate supplier, expired, too small, 403, robots.txt, "
       "directory discovery of new domains, construction relevance, same-supplier dedup, parse diagnostics, soft-404 HTML, link-text and subdomain files, "
-      "directory sub-pages, "
+      "directory sub-pages, small/mixed stores kept, OIB dedup, homepage dated file, feed by content, rotation queue, "
       "inclusion, rerun without duplicates, failed source from last valid list, stale cache excluded, atomic publish")

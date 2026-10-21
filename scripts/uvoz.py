@@ -51,6 +51,19 @@ OGLAS_VRIJEDI_DANA = 7
 # Cjenik trgovca stariji od ovoga ne ulazi u usporedbu (obveza je dnevna objava, NN 101/2026).
 CJENIK_VRIJEDI_DANA = 3
 
+# Pojmovi građevinskog asortimana. Služe samo za odvajanje artikala mješovite trgovine, ne za odbacivanje izvora.
+GRADJEVINSKI_POJMOVI = re.compile(r"\b(cement|beton|zbuk|malter|mort|ljepil|fug|glet|gips|knauf|rigips|opek|cigl|blok|crijep|"
+                                  r"stiropor|eps|xps|vun|izolac|hidroizol|bitumen|folij|armatur|mrez|profil|osb|iveric|sper|"
+                                  r"letv|gred|dask|laminat|parket|ploc|boj|lak|lazur|premaz|silikon|kit|pjen|vijak|vijc|cavl|"
+                                  r"tipl|cijev|kabel|oluk|zlijeb|mjesalic|busilic|brusilic|kolic|ljestv|skel|lopat|zlic|"
+                                  r"gleteric|alat|pijes|sljun|tucan|vapn|kamen|drv|oplat|grijanj|radijator|sanitar|slavin|"
+                                  r"kupaon|pvc|ppr|bakren|fasad|krov|prozor|vrat)", re.I)
+
+
+def je_gradjevinski(naziv: str) -> bool:
+    return bool(GRADJEVINSKI_POJMOVI.search(normaliziraj(naziv)))
+
+
 # Jedinica -> (osnovna jedinica, faktor).
 JEDINICE = {
     "mg": ("kg", 1e-6), "g": ("kg", 0.001), "gr": ("kg", 0.001), "dag": ("kg", 0.01),
@@ -370,11 +383,26 @@ def kljuc_oglasa(o: dict) -> str:
 
 
 # ---------- Obrada ----------
-def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[dict, list[dict]]:
+def _procitaj(izvor: dict, sadrzaj) -> tuple[list, str]:
+    tekst = dekodiraj(sadrzaj) if isinstance(sadrzaj, bytes) else sadrzaj
+    if izvor.get("format") == "oglasi-json":
+        stavke = json.loads(tekst)
+        if not isinstance(stavke, list):
+            raise ValueError("oglasi-json mora biti popis oglasa")
+        return stavke, tekst
+    if izvor.get("format") == "xml":
+        return list(citaj_xml(tekst, izvor.get("stupci"))), tekst
+    return list(citaj_csv(tekst, izvor.get("stupci"))), tekst
+
+
+def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=None) -> tuple[dict, list[dict]]:
     """
     izvori: provjereni izvori iz izvori.json. ucitaj(izvor) -> bytes ili str sadržaj.
+    rezerva(izvor) -> (sadržaj, datum) zadnjeg valjanog cjenika ili None; koristi se kad današnji sadržaj stigne,
+    ali se ne može obraditi ili nema datum (npr. HTTP 200 s HTML-om). Zadana je ucitaj.rezerva ako postoji.
     Vraća (podaci za aplikaciju ili None, stanje svakog izvora).
     """
+    rezerva = rezerva or getattr(ucitaj, "rezerva", None)
     sada = sada or datetime.now(timezone.utc)
     lanci, vrste, stanje, datumi_lanaca = [], [], [], []
     svi: dict[str, dict] = {}
@@ -389,26 +417,32 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
             zapis_stanja["url"] = izvor["url"]
         if izvor.get("otkriveno"):
             zapis_stanja["otkriveno"] = True
+        stavke = datum = None
+        greska = ""
         try:
-            sadrzaj = ucitaj(izvor)
-            tekst = dekodiraj(sadrzaj) if isinstance(sadrzaj, bytes) else sadrzaj
-            if izvor.get("format") == "oglasi-json":
-                stavke = json.loads(tekst)
-                if not isinstance(stavke, list):
-                    raise ValueError("oglasi-json mora biti popis oglasa")
-            elif izvor.get("format") == "xml":
-                stavke = list(citaj_xml(tekst, izvor.get("stupci")))
-            else:
-                stavke = list(citaj_csv(tekst, izvor.get("stupci")))
+            stavke, tekst = _procitaj(izvor, ucitaj(izvor))
+            # Datum objave: iz popisa datoteka ili iz zaglavlja XML-a, nikad vrijeme preuzimanja.
+            if izvor.get("format") != "oglasi-json":
+                datum = datum_objave(izvor.get("datum")) or (datum_iz_xml(tekst) if izvor.get("format") == "xml" else None)
+                if datum is None:
+                    raise ValueError("nepoznat datum cjenika")
         except Exception as e:  # noqa: BLE001 - jedan neispravan izvor ne ruši ostale
-            stanje.append({**zapis_stanja, "uspjeh": False, "greska": str(e)[:300]})
+            greska, stavke = str(e)[:300], None
+        if stavke is None and rezerva and not izvor.get("iz_predmemorije"):
+            # Današnji sadržaj nije valjan: zadnji valjani cjenik s izvornim datumom, uz zapis današnjeg kvara.
+            spremljeno = rezerva(izvor)
+            if spremljeno:
+                try:
+                    stavke, tekst = _procitaj(izvor, spremljeno[0])
+                    datum = datum_objave(spremljeno[1])
+                    izvor["iz_predmemorije"], izvor["datum"] = True, spremljeno[1]
+                    zapis_stanja["danasnja_greska"] = greska
+                except Exception:  # noqa: BLE001
+                    stavke = None
+        if stavke is None:
+            stanje.append({**zapis_stanja, "uspjeh": False, "greska": greska})
             continue
-        # Datum objave: iz popisa datoteka ili iz zaglavlja XML-a, nikad vrijeme preuzimanja.
         if izvor.get("format") != "oglasi-json":
-            datum = datum_objave(izvor.get("datum")) or (datum_iz_xml(tekst) if izvor.get("format") == "xml" else None)
-            if datum is None:
-                stanje.append({**zapis_stanja, "uspjeh": False, "greska": "nepoznat datum cjenika"})
-                continue
             zapis_stanja["datum"] = datum.isoformat()
             if izvor.get("iz_predmemorije"):
                 zapis_stanja["iz_predmemorije"] = True  # današnji dohvat nije uspio
@@ -421,7 +455,8 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
         lanci.append(izvor["naziv"])
         vrste.append(izvor.get("vrsta", "trgovina"))
         datumi_lanaca.append(zapis_stanja.get("datum", ""))
-        primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = nedostupno = 0
+        primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = nedostupno = negradjevinsko = 0
+        spojeno_u_izvoru = 0
         for s in stavke:
             primljeno += 1
             meta = None
@@ -462,6 +497,10 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
                     continue
                 cijena = min(cijene)
                 naziv = s["naziv"]
+                # Mješovita trgovina (otkrivena): uvoze se samo artikli s građevinskim pojmom; ostali se broje.
+                if izvor.get("samo_gradjevinski") and not je_gradjevinski(naziv):
+                    negradjevinsko += 1
+                    continue
                 marka = s.get("marka", "")
                 m = mjera(s.get("kolicina", ""), s.get("jedinica", ""), u_broj(s.get("cijena")), u_broj(s.get("jedinicna")), naziv)
                 spec = specifikacija(naziv, m[1]) if m else ""
@@ -479,6 +518,8 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
                 zapis = svi.get(kljuc)
             if zapis is None:
                 zapis = svi[kljuc] = {"cijene": {}, "mjera": m, "spec": spec, "meta": meta, "najniza": None}
+            if idx in zapis["cijene"]:
+                spojeno_u_izvoru += 1  # isti proizvod (barkod/šifra, mjera, specifikacija) više puta u istom cjeniku
             if idx not in zapis["cijene"] or cijena < zapis["cijene"][idx]:
                 zapis["cijene"][idx] = cijena
             if zapis["najniza"] is None or cijena < zapis["najniza"]:
@@ -487,11 +528,13 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
             # Cjenik bez ijedne dostupne ponude ne postaje prazna trgovina u aplikaciji.
             lanci.pop(); vrste.pop(); datumi_lanaca.pop()
             stanje.append({**zapis_stanja, "uspjeh": False, "greska": "nema dostupnih ponuda", "primljeno": primljeno,
-                           "nedostupno": nedostupno, "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata})
+                           "nedostupno": nedostupno, "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata,
+                           **({"negradjevinsko": negradjevinsko} if izvor.get("samo_gradjevinski") else {})})
             continue
         stanje.append({**zapis_stanja, "uspjeh": True, "primljeno": primljeno, "prihvaceno": prihvaceno,
                        "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata,
-                       "neusporedeno": neuspordeno, "nedostupno": nedostupno})
+                       "neusporedeno": neuspordeno, "nedostupno": nedostupno, "spojeno_u_izvoru": spojeno_u_izvoru,
+                       **({"negradjevinsko": negradjevinsko} if izvor.get("samo_gradjevinski") else {}), "lanac": idx})
 
     proizvodi = []
     for z in svi.values():
@@ -504,6 +547,16 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
             z["spec"], z["meta"],
         ])
     proizvodi.sort(key=lambda p: p[5][1])
+    # Ponude u aplikaciji po izvoru (jedinstveni proizvodi tog izvora) i usklađenost s prihvaćenim retcima.
+    po_lancu = [0] * len(lanci)
+    for z in svi.values():
+        for lanac in z["cijene"]:
+            po_lancu[lanac] += 1
+    for st in stanje:
+        if st.get("uspjeh"):
+            st["ponuda_u_aplikaciji"] = po_lancu[st.pop("lanac")]
+            if st["ponuda_u_aplikaciji"] != st["prihvaceno"] - st["spojeno_u_izvoru"]:
+                raise AssertionError(f"neusklađeni brojevi za {st['id']}")
     if not proizvodi:
         return None, stanje
     # Datum aplikacije je najstariji uključeni cjenik, da se ne prikazuje svježije od izvora.
@@ -562,13 +615,35 @@ def razlozi_izvore(izvori: list[dict], dohvati) -> list[dict]:
             rezultat.append({**izvor, "popis": False, "greska_stranice": f"popis cjenika nedostupan: {e}"[:300]})
             continue
         filtar = [normaliziraj(f) for f in izvor.get("poslovnice", [])]
+        prije = len(rezultat)
         for c in cjenici_sa_stranice(html, izvor["stranica"], izvor.get("format", "csv")):
             ime = c["poslovnica"].replace("_", " ").strip()
             if filtar and not any(f in normaliziraj(ime) for f in filtar):
                 continue
             rezultat.append({**izvor, "id": f"{izvor['id']}:{c['poslovnica']}", "naziv": f"{izvor['naziv']} · {ime}",
                              "url": c["url"], "datum": c["datum"], "popis": False, "roditelj": izvor["id"]})
+        if len(rezultat) == prije:
+            # Stranica se otvorila, ali bez prepoznatih datiranih datoteka: izvor ostaje vidljiv, a predmemorija ga može nadomjestiti.
+            rezultat.append({**izvor, "popis": False, "greska_stranice": "na stranici popisa nema prepoznatih cjenika"})
     return rezultat
+
+
+def brojke_uvoza(stanje: list[dict], podaci: dict | None) -> dict:
+    """
+    Definicije: ulazni redak = redak datoteke; prihvaćeni redak = dostupan, s cijenom, u opsegu;
+    ponuda proizvod×izvor = prihvaćeni redci nakon spajanja istog proizvoda unutar istog cjenika;
+    jedinstveni proizvod = isti barkod (ili šifra), mjera i specifikacija kroz sve izvore = jedan red u aplikaciji.
+    """
+    ok = [s for s in stanje if s.get("uspjeh")]
+    b = {"ulaznih_redaka": sum(s.get("primljeno", 0) for s in stanje),
+         "prihvacenih_redaka": sum(s["prihvaceno"] for s in ok),
+         "spojeno_u_izvoru": sum(s["spojeno_u_izvoru"] for s in ok),
+         "ponuda_proizvod_izvor": sum(len(p[5]) // 2 for p in podaci["proizvodi"]) if podaci else 0,
+         "jedinstvenih_proizvoda": len(podaci["proizvodi"]) if podaci else 0}
+    if b["ponuda_proizvod_izvor"] != b["prihvacenih_redaka"] - b["spojeno_u_izvoru"] or \
+            b["ponuda_proizvod_izvor"] != sum(s["ponuda_u_aplikaciji"] for s in ok):
+        raise AssertionError(f"neusklađeni ukupni brojevi: {b}")
+    return b
 
 
 def preuzmi_url(url: str, pokusaja: int = 3, cekanje: float = 2.0) -> bytes:
@@ -646,6 +721,13 @@ def s_predmemorijom(izvori: list[dict], ucitaj, mapa: Path):
         izvor["iz_predmemorije"] = True
         izvor["datum"] = spremljeno["datum"]
         return _datoteka_predmemorije(mapa, izvor["id"]).read_bytes()
+
+    def rezerva(izvor):
+        """Zadnji valjani cjenik kad je današnji sadržaj stigao, ali nije valjan."""
+        spremljeno = indeks.get(izvor["id"])
+        put = _datoteka_predmemorije(mapa, izvor["id"])
+        return (put.read_bytes(), spremljeno["datum"]) if spremljeno and put.exists() else None
+    ucitaj_ili_predmemorija.rezerva = rezerva
     return rezultat, ucitaj_ili_predmemorija, preuzeto
 
 
@@ -687,10 +769,12 @@ def main():
     podaci, stanje = obradi(izvori, ucitaj)
     po_id = {i["id"]: i for i in izvori}
     for s in stanje:
-        if s["uspjeh"] and s["id"] in preuzeto:
+        # Sprema se samo današnji sadržaj koji je i obrađen; neispravan današnji sadržaj ne briše zadnji valjani.
+        if s["uspjeh"] and s["id"] in preuzeto and not s.get("iz_predmemorije"):
             spremi_predmemoriju(a.predmemorija, po_id[s["id"]], preuzeto[s["id"]], s["datum"])
+    brojke = brojke_uvoza(stanje, podaci)
     STANJE.parent.mkdir(parents=True, exist_ok=True)
-    STANJE.write_text(json.dumps({"azurirano": datetime.now(timezone.utc).isoformat(timespec="minutes"),
+    STANJE.write_text(json.dumps({"azurirano": datetime.now(timezone.utc).isoformat(timespec="minutes"), "brojke": brojke,
                                   "uvezeno": stanje, "nije-uvezeno": preskoceni}, ensure_ascii=False, indent=1), encoding="utf-8")
     for s in stanje:
         print(("OK " if s["uspjeh"] else "GREŠKA ") + json.dumps(s, ensure_ascii=False))
@@ -699,7 +783,9 @@ def main():
     # Trgovac = domena (poslovnice istog trgovca broje se jednom).
     trgovci = {domena(i.get("stranica") or i.get("url") or i["id"]) for i in izvori if i["id"] in uspjesni}
     sazetak = (f"Trgovaca s valjanim cjenikom: {len(trgovci)} · poslovnica/izvora: {sum(s['uspjeh'] for s in stanje)} · "
-               f"ponuda: {len(podaci['proizvodi']) if podaci else 0} · iz predmemorije: {sum(1 for s in stanje if s.get('iz_predmemorije'))}")
+               f"ulaznih redaka: {brojke['ulaznih_redaka']} · prihvaćenih redaka: {brojke['prihvacenih_redaka']} · "
+               f"ponuda proizvod×izvor: {brojke['ponuda_proizvod_izvor']} · jedinstvenih proizvoda: {brojke['jedinstvenih_proizvoda']} · "
+               f"iz predmemorije: {sum(1 for s in stanje if s.get('iz_predmemorije'))}")
     print(sazetak)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
@@ -709,7 +795,7 @@ def main():
         print("Nema valjanih cjenika; postojeći cjenik se ne mijenja.")
         return 0
     objavi_atomski(podaci, IZLAZ)
-    print(f"Gotovo: {len(podaci['proizvodi'])} ponuda iz {len(podaci['lanci'])} izvora -> {IZLAZ}")
+    print(f"Gotovo: {len(podaci['proizvodi'])} jedinstvenih proizvoda iz {len(podaci['lanci'])} izvora -> {IZLAZ}")
     return 0
 
 

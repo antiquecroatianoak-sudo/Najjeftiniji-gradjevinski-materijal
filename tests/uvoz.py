@@ -245,4 +245,48 @@ assert len(p0["datumiLanaca"]) == 1 and len(p2["datumiLanaca"]) == len(p2["lanci
     "price date per store, aligned with stores"
 # Bez izvora nema objave
 assert u.obradi([], lambda i: b"", sada)[0] is None
-print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source")
+
+# Brojke: ulazni retci, prihvaćeni retci, spajanje istog proizvoda u istom cjeniku, ponude, jedinstveni proizvodi.
+CSV_D = ("Naziv;Barkod;Neto količina;Jedinica mjere;MPC\nLaminat hrast 8 mm;3859999;2,5;m2;22,50\n"
+         "Laminat hrast 8 mm;3859999;2,5;m2;21,90\nCement 25 kg;111;25;kg;6,00\n")
+pd_, std = u.obradi([{"id": "a", "naziv": "A", "format": "csv", "datum": "2026-10-20"},
+                     {"id": "b", "naziv": "B", "format": "csv", "datum": "2026-10-20"}], lambda i: {"a": CSV_D, "b": CSV_A}[i["id"]], sada)
+bd = u.brojke_uvoza(std, pd_)
+assert bd == {"ulaznih_redaka": 4, "prihvacenih_redaka": 4, "spojeno_u_izvoru": 1, "ponuda_proizvod_izvor": 3,
+              "jedinstvenih_proizvoda": 2}, bd
+assert [x["ponuda_u_aplikaciji"] for x in std] == [2, 1] and "lanac" not in std[0]
+lam = next(p for p in pd_["proizvodi"] if p[0].startswith("Laminat"))
+assert lam[5] == [0, 21.9, 1, 22.5], "the lower of the two rows in the same list, then the other store"
+# Mješovita trgovina: uvoze se samo građevinski artikli, ostali se broje (ne nestaju tiho).
+MJES = "Naziv;Barkod;Neto količina;Jedinica mjere;MPC\nČokolada 100 g;1;100;g;1,00\nLjepilo za pločice 25 kg;2;25;kg;9,00\n"
+pm, sm = u.obradi([{"id": "m", "naziv": "M", "format": "csv", "datum": "2026-10-20", "samo_gradjevinski": True}], lambda i: MJES, sada)
+assert [p[0] for p in pm["proizvodi"]] == ["Ljepilo za pločice 25 kg"] and sm[0]["negradjevinsko"] == 1 and sm[0]["primljeno"] == 2
+# HTTP 200, ali neispravan sadržaj: zadnji valjani cjenik ostaje, označen, uz današnji kvar; istekli se isključuje.
+import tempfile
+with tempfile.TemporaryDirectory() as tmp:
+    mapa = Path(tmp)
+    izv = {"id": "x", "naziv": "X", "format": "xml", "url": "https://x.invalid/c.xml"}
+    XML_OK = ('<cjenik generated="2026-10-20T05:00:00+00:00"><proizvod><naziv>Cement 25 kg</naziv><sifra>1</sifra>'
+              '<maloprodajna_cijena>6.00</maloprodajna_cijena></proizvod></cjenik>').encode()
+    u.spremi_predmemoriju(mapa, izv, XML_OK, "2026-10-20")
+    for danas in (b"<!DOCTYPE html><html><body>Odr\xc5\xbeavanje</body></html>", b"<cjenik><proizvod>", b""):
+        r, uc, preuzeto = u.s_predmemorijom([dict(izv)], lambda i: danas, mapa)
+        pc, sc = u.obradi(r, uc, sada)
+        assert sc[0]["uspjeh"] and sc[0]["iz_predmemorije"] and sc[0]["datum"] == "2026-10-20" and sc[0]["danasnja_greska"], sc
+        assert [p[0] for p in pc["proizvodi"]] == ["Cement 25 kg"] and pc["datumiLanaca"] == ["2026-10-20"]
+        assert "x" in preuzeto, "today's bad content was downloaded, but main() must not cache it (iz_predmemorije)"
+    r, uc, _ = u.s_predmemorijom([dict(izv)], lambda i: b"<html></html>", mapa)
+    pc, sc = u.obradi(r, uc, datetime(2026, 10, 25, 9, tzinfo=timezone.utc))
+    assert pc is None and sc[0]["greska"] == "zastario cjenik od 2026-10-20", sc
+    # Popis se otvori, ali bez prepoznatih datoteka: izvor ostaje s razlogom, a zadnje poznate poslovnice ga nadomještaju.
+    rod = {"id": "p", "naziv": "P", "format": "xml", "stranica": "https://p.invalid/cjenici/", "popis": True}
+    prazno = u.razlozi_izvore([rod], lambda url: b"<html>Cjenici su premje\xc5\xa1teni</html>")
+    assert prazno[0]["greska_stranice"] == "na stranici popisa nema prepoznatih cjenika", prazno
+    _, sp = u.obradi(prazno, lambda i: b"", sada)
+    assert sp[0]["greska"] == "na stranici popisa nema prepoznatih cjenika"
+    u.spremi_predmemoriju(mapa, {"id": "p:web", "naziv": "P · web", "format": "xml", "url": "https://p.invalid/a.xml",
+                                 "roditelj": "p"}, XML_OK, "2026-10-20")
+    r, uc, _ = u.s_predmemorijom(prazno, lambda i: (_ for _ in ()).throw(OSError("nema")), mapa)
+    pc, sc = u.obradi(r, uc, sada)
+    assert sc[0]["uspjeh"] and sc[0]["iz_predmemorije"] and sc[0]["id"] == "p:web", sc
+print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source, counts by stage, mixed store, cache after bad 200, empty listing")

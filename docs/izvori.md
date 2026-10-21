@@ -7,7 +7,7 @@ Nijedna cijena nije izmišljena.
 ## Stvarno pokretanje na GitHub Actions (21.10.2026., run 23, commit 2696c2b, grana bez objave)
 Isti rezultat kao run 19 (a7120f3). Run 22 (df86130): TERMO-METAL je vratio 403 → 7 trgovaca; u produkciji bi se tada koristio zadnji valjani cjenik iz predmemorije (ako nije stariji od 3 dana).
 Otkrivanje i uvoz izvršeni na GitHubovim poslužiteljima (koji, za razliku od razvojnog okruženja, imaju pristup internetu):
-**8 različitih trgovaca, 10 poslovnica/izvora, 34 399 ponuda, svi cjenici od 2026-10-21.**
+**8 različitih trgovaca, 10 poslovnica/izvora, 34 399 jedinstvenih proizvoda (ne ponuda; vidi „Brojke”), svi cjenici od 2026-10-21.**
 
 | Trgovac | URL (najnovija datoteka) | Primljeno | Prihvaćeno | Nedostupno |
 |---|---|---|---|---|
@@ -31,7 +31,7 @@ vasatrgovina.hr, primjer.hr, azop.hr) — nijedna nema cjenik; popis trgovaca u 
 
 ## Izvještaj po trgovcu — run 27 (commit 56333cb, 21.10.2026., grana bez objave)
 https://github.com/antiquecroatianoak-sudo/Najjeftiniji-gradjevinski-materijal/actions/runs/39593507440 —
-**9 različitih trgovaca, 11 izvora, 35 794 ponuda**, svi cjenici od 2026-10-21. Cijene su u EUR s PDV-om (maloprodajne,
+**9 različitih trgovaca, 11 izvora, 35 794 jedinstvenih proizvoda (ne ponuda; vidi „Brojke”)**, svi cjenici od 2026-10-21. Cijene su u EUR s PDV-om (maloprodajne,
 NN 101/2026). Jedinica, pakiranje i specifikacija dolaze iz cjenika i naziva.
 
 | Trgovac | Službeni URL | Status | Dokaz / razlog | Prihvaćeno |
@@ -67,6 +67,16 @@ dodani su ručno u `domene.json`.
 **Webshopovi bez CSV/XML**: 10 trgovaca ima cijene samo na HTML stranicama. Uvoz cijena s HTML stranica (npr. strukturirani
 podaci schema.org/Product) nije uveden jer mijenja dosadašnje pravilo „samo službeni strojno čitljivi cjenici“; čeka
 odluku. Obveza objave CSV/XML za sve trgovce počinje 17.11.2026.
+
+## Brojke (od commita nakon 2121705)
+Raniji izvještaji zvali su broj redaka u `proizvodi.json` „ponudama“. To je zapravo broj **jedinstvenih proizvoda**, pa je
+zato bio manji od Bačelićevih 46 967 prihvaćenih redaka. Sada se odvojeno broji i provjerava:
+- **ulazni redak**: redak datoteke;
+- **prihvaćeni redak**: dostupan, s cijenom, u opsegu;
+- **spojeno u izvoru**: isti proizvod (barkod ili šifra, ista mjera i specifikacija) više puta u istom cjeniku, zadržava se niža cijena;
+- **ponuda proizvod×izvor** = prihvaćeni redci − spojeni u izvoru, a mora biti jednaka zbroju `ponuda_u_aplikaciji` po izvoru;
+- **jedinstveni proizvod**: isti proizvod kroz sve izvore je jedan red u aplikaciji, s cijenom svakog izvora.
+Neusklađeni brojevi zaustavljaju objavu. Sve se zapisuje u `stanje-izvora.json` → `brojke` i ispisuje u sažetku runa.
 
 ## Pravna osnova za trgovine
 - Odluka o objavi cjenika proizvoda i usluga kao mjera izravne kontrole cijena, **NN 101/2026**

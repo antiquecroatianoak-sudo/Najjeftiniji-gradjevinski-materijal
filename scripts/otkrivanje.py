@@ -27,6 +27,8 @@ import uvoz  # noqa: E402
 KORIJEN = Path(__file__).resolve().parent.parent
 DOMENE = KORIJEN / "scripts" / "domene.json"
 IZLAZ = KORIJEN / "site" / "data" / "otkriveni.json"
+# Napredak kroz imenike (čuva se s predmemorijom cjenika u GitHub Actions).
+RED = KORIJEN / ".predmemorija" / "otkrivanje-red.json"
 AGENT = "najjeftiniji-gradjevinski-materijal/1 (javni cjenik)"
 
 # Uobičajene putanje, uključujući one koje generiraju WordPress dodaci za NN 101/2026 (npr. MJDD Sidrena Cijena).
@@ -38,15 +40,12 @@ RE_STRANICA_CJENIKA = re.compile(r"cjeni|sidren|prices?-list|price-list", re.I)
 RE_TEKST_CJENIKA = re.compile(r"cjeni|sidren|objava cijena|popis cijena|price list", re.I)
 RE_DOMENA_U_TEKSTU = re.compile(r"(?<![\w@.%-])(?<!%2f)(?<!%2F)(?:https?:\\?/\\?/)?(?:www\.)?((?:[a-z0-9-]+\.)+hr)(?![\w-])", re.I)
 RE_WEBSHOP = re.compile(r'itemprop=["\']price|"@type"\s*:\s*"Product"|woocommerce|add-to-cart|dodaj u košaricu|u košaricu', re.I)
-RE_NIJE_CJENIK = re.compile(r"sitemap|feed|rss|wp-json|oembed", re.I)
-# Kandidat mora imati barem toliko valjanih ponuda da bi se smatrao pravim cjenikom.
-NAJMANJE_PONUDA = 20
-# Novootkriveni trgovac mora prodavati građevinski materijal/opremu: barem ovaj udio naziva s građevinskim pojmom.
+# Samo tehničke krajnje točke; RSS, sitemap i proizvodni feedovi razlikuju se po sadržaju u provjeri().
+RE_NIJE_CJENIK = re.compile(r"wp-json|oembed", re.I)
+# Izvor je valjan ako ima barem jednu valjanu datiranu ponudu. Mali izvori i mješovite trgovine se ne odbacuju heuristikom:
+# ispod ovih pragova dobivaju napomenu za pregled, a mješovita trgovina uvozi samo artikle s građevinskim pojmom.
+MALI_IZVOR = 20
 NAJMANJI_UDIO_GRADJEVINSKOG = 0.10
-GRADJEVINSKI_POJMOVI = re.compile(r"\b(cement|beton|zbuk|malter|mort|ljepil|fug|glet|gips|knauf|rigips|opek|cigl|blok|crijep|"
-                                  r"stiropor|eps|xps|vun|izolac|hidroizol|bitum|foli|armatur|profil|osb|iveric|sperploc|letv|"
-                                  r"gred|dask|laminat|parket|ploc|boj|lak|lazur|premaz|silikon|kit|pjen|mrez|vijak|vijc|cav|tipl|"
-                                  r"cijev|kabel|oluk|mjesalic|busilic|brusilic|kolica|ljestv|skel|lopat|alat|pijes|sljunak|vapn)", re.I)
 # Imenici/agregatori i velike platforme nisu trgovci.
 NIJE_TRGOVAC = re.compile(r"(facebook|instagram|twitter|x\.com|youtube|linkedin|google|apple|microsoft|wordpress|wikipedia|"
                           r"github|narodne-novine|gov\.hr|zakon\.hr|tiktok|pinterest|whatsapp|viber)", re.I)
@@ -104,6 +103,7 @@ def otkrij(pocetna: str, dohvati, robots=None) -> list[dict]:
         if not smije(korijen + "/"):
             raise PermissionError("robots.txt")
         naslovna = uvoz.dekodiraj(dohvati(korijen + "/"))
+        stranice.append(korijen + "/")  # datirane datoteke izravno na naslovnoj (bez zasebne stranice popisa)
         for url in poveznice_cjenika(naslovna, korijen + "/", dom):
             (datoteke if re.search(r"\.(csv|xml)$", urllib.parse.urlsplit(url).path, re.I) else stranice).append(url)
     except Exception:  # noqa: BLE001 - naslovna nedostupna: probaj uobičajene putanje
@@ -154,7 +154,17 @@ def otkrij(pocetna: str, dohvati, robots=None) -> list[dict]:
 def udio_gradjevinskog(proizvodi: list) -> float:
     if not proizvodi:
         return 0.0
-    return sum(1 for p in proizvodi if GRADJEVINSKI_POJMOVI.search(uvoz.normaliziraj(p[0]))) / len(proizvodi)
+    return sum(1 for p in proizvodi if uvoz.je_gradjevinski(p[0])) / len(proizvodi)
+
+
+def vrsta_xml(sadrzaj: bytes) -> str:
+    """Prepoznaje XML koji nije cjenik po sadržaju, ne po nazivu datoteke."""
+    pocetak = sadrzaj[:4096].lower()
+    if b"<rss" in pocetak or b"<feed" in pocetak:
+        return "proizvodni feed (Google Merchant / RSS s g:price)" if b"g:price" in sadrzaj[:200000].lower() else "RSS/Atom feed vijesti"
+    if b"<urlset" in pocetak or b"<sitemapindex" in pocetak:
+        return "sitemap"
+    return ""
 
 
 def uzorak(dohvati, url: str) -> str:
@@ -170,7 +180,18 @@ def naslov(html: str) -> str:
     return re.sub(r"\s+", " ", m.group(1)).strip()[:120] if m else ""
 
 
-def domene_iz_imenika(url: str, dohvati, poznate: set, pregled: dict | None = None) -> list[dict]:
+def rotiraj(lista: list, pomak: int, n: int) -> tuple[list, int]:
+    """Prozor od n stavki počevši od pomaka (kružno) i sljedeći pomak: uz ograničenje opterećenja svi dođu na red."""
+    if not lista:
+        return [], 0
+    pomak %= len(lista)
+    if n >= len(lista):
+        return list(lista), 0
+    prozor = (lista + lista)[pomak:pomak + n]
+    return prozor, (pomak + n) % len(lista)
+
+
+def domene_iz_imenika(url: str, dohvati, poznate: set, pregled: dict | None = None, pomak: int = 0) -> list[dict]:
     """
     Nove domene trgovaca iz javnog imenika/agregatora cjenika: vanjske .hr poveznice koje nisu poznate,
     nisu platforme i nisu sam imenik. Provjera da su trgovci građevinskog materijala slijedi u provjeri().
@@ -183,8 +204,11 @@ def domene_iz_imenika(url: str, dohvati, poznate: set, pregled: dict | None = No
         pregled.update({"bajtova": len(html), "poveznica": len(sve),
                         "vanjske": sorted({domena(v) for v in sve if domena(v) != vlastita})[:40]})
     # Imenik često ima zasebnu stranicu po trgovcu: pregledaju se i unutarnje stranice (jedna razina, ograničeno).
-    unutarnje = [v for v in dict.fromkeys(sve) if domena(v) == vlastita and v.rstrip("/") != url.rstrip("/")
-                 and not re.search(r"\.(css|js|png|jpe?g|svg|webp|ico|pdf|woff2?)(\?|$)", v, re.I)][:NAJVISE_STRANICA_IMENIKA]
+    sve_unutarnje = [v for v in dict.fromkeys(sve) if domena(v) == vlastita and v.rstrip("/") != url.rstrip("/")
+                     and not re.search(r"\.(css|js|png|jpe?g|svg|webp|ico|pdf|woff2?)(\?|$)", v, re.I)]
+    unutarnje, sljedeci = rotiraj(sve_unutarnje, pomak, NAJVISE_STRANICA_IMENIKA)
+    if pregled is not None:
+        pregled.update({"unutarnjih_ukupno": len(sve_unutarnje), "pomak_stranica": pomak, "sljedeci_pomak_stranica": sljedeci})
     for v in unutarnje:
         try:
             tekst = uvoz.dekodiraj(dohvati(v))
@@ -225,8 +249,12 @@ def provjeri(kandidat: dict, dohvati, sada: datetime | None = None, gradjevinski
         greska = s.get("greska", "nepoznata greška")
         dodatak = {"uzorak": uzorak(dohvati, izvori[0]["url"])} if "well-formed" in greska or "element" in greska or "stupce" in greska else {}
         try:
-            if je_html(dohvati(izvori[0]["url"])):
+            sadrzaj = dohvati(izvori[0]["url"])
+            if je_html(sadrzaj):
                 greska = "na adresi je HTML stranica, ne CSV/XML cjenik"
+            elif vrsta := vrsta_xml(sadrzaj):
+                greska = f"nepodržan format: {vrsta}"
+                dodatak["nepodrzano"] = {"format": vrsta, "url": izvori[0]["url"]}
         except Exception:  # noqa: BLE001
             pass
         return {**kandidat, **dodatak, "prihvacen": False, "razlog": greska}
@@ -234,12 +262,20 @@ def provjeri(kandidat: dict, dohvati, sada: datetime | None = None, gradjevinski
     dokaz = {"datum": s.get("datum"), "primljeno": s.get("primljeno"), "prihvaceno": s.get("prihvaceno"),
              "nedostupno": s.get("nedostupno", 0), "s_jedinicom": s_jedinicom, "provjereno": sada.isoformat(timespec="minutes"),
              "url": s.get("url")}
-    if (s.get("prihvaceno") or 0) < NAJMANJE_PONUDA:
-        return {**kandidat, **dokaz, "prihvacen": False, "razlog": f"premalo valjanih ponuda ({s.get('prihvaceno')})"}
+    napomene = []
+    if (s.get("prihvaceno") or 0) < MALI_IZVOR:
+        napomene.append(f"mali izvor ({s.get('prihvaceno')} ponuda)")
+    # Klasifikacija artikala odvojena je od valjanosti izvora: relevantni artikli se zadržavaju.
     dokaz["udio_gradjevinskog"] = round(udio_gradjevinskog(podaci["proizvodi"]), 3)
+    gradjevinskih = sum(1 for p in podaci["proizvodi"] if uvoz.je_gradjevinski(p[0]))
+    dokaz["gradjevinskih"] = gradjevinskih
     if gradjevinski and dokaz["udio_gradjevinskog"] < NAJMANJI_UDIO_GRADJEVINSKOG:
-        return {**kandidat, **dokaz, "prihvacen": False, "razlog": f"asortiman nije građevinski ({dokaz['udio_gradjevinskog']:.0%})"}
-    return {**kandidat, **dokaz, "prihvacen": True, "razlog": ""}
+        if not gradjevinskih:
+            return {**kandidat, **dokaz, "prihvacen": False, "za_pregled": True,
+                    "razlog": "nijedan naziv nije prepoznat kao građevinski; izvor je izdvojen za pregled"}
+        dokaz["samo_gradjevinski"] = True
+        napomene.append(f"mješovita trgovina: uvoze se samo građevinski artikli ({gradjevinskih} od {len(podaci['proizvodi'])})")
+    return {**kandidat, **dokaz, "prihvacen": True, "razlog": "", **({"napomena": "; ".join(napomene)} if napomene else {})}
 
 
 def pocetne_domene(izvori: list[dict], dodatne: list[dict]) -> list[dict]:
@@ -253,7 +289,7 @@ def pocetne_domene(izvori: list[dict], dodatne: list[dict]) -> list[dict]:
         d = domena(adresa)
         if d and d not in vidjeno and d not in rucni:
             vidjeno.add(d)
-            rezultat.append({"domena": d, "naziv": i.get("naziv", d), "pocetna": adresa})
+            rezultat.append({"domena": d, "naziv": i.get("naziv", d), "pocetna": adresa, **({"oib": i["oib"]} if i.get("oib") else {})})
     return rezultat
 
 
@@ -302,16 +338,77 @@ def run(trgovci: list[dict], dohvati, smije, sada: datetime | None = None) -> li
 
 
 def dedupliciraj(rezultat: list[dict]) -> list[dict]:
-    """Isti trgovac na dvije domene (isti naslov stranice i isti broj ponuda) prihvaća se jednom."""
-    vidjeno = set()
+    """
+    Trgovac = kanonska domena (bez www.); poslovnice istog trgovca ostaju zasebni izvori unutar njega.
+    Dvije domene su isti trgovac samo uz potvrđeni identitet (isti OIB u domene.json). Isti naslov stranice i broj ponuda
+    nisu dokaz: takav par se označava za pregled, ali se ne odbacuje.
+    """
+    po_oib, po_naslovu = {}, {}
     for r in rezultat:
         if not r.get("prihvacen"):
             continue
+        if r.get("oib"):
+            if r["oib"] in po_oib:
+                r["prihvacen"], r["razlog"] = False, f"isti trgovac (OIB {r['oib']}) kao {po_oib[r['oib']]}"
+                continue
+            po_oib[r["oib"]] = r["domena"]
         kljuc = (uvoz.normaliziraj(r.get("naslov", "")), r.get("prihvaceno"))
-        if kljuc[0] and kljuc in vidjeno:
-            r["prihvacen"], r["razlog"] = False, "isti trgovac kao već prihvaćena domena"
-        vidjeno.add(kljuc)
+        if kljuc[0] and kljuc in po_naslovu:
+            r["moguci_duplikat"] = po_naslovu[kljuc]
+        po_naslovu.setdefault(kljuc, r["domena"])
     return rezultat
+
+
+def ucitaj_red(put: Path) -> dict:
+    try:
+        return json.loads(put.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - prvi put ili oštećena datoteka: počinje se iznova
+        return {"imenici": {}, "domene": [], "pomak_domena": 0, "prihvacene": []}
+
+
+def spremi_red(put: Path, red: dict) -> None:
+    put.parent.mkdir(parents=True, exist_ok=True)
+    put.with_suffix(".tmp").write_text(json.dumps(red, ensure_ascii=False, indent=1), encoding="utf-8")
+    put.with_suffix(".tmp").replace(put)
+
+
+def trgovci_iz_imenika_s_redom(imenici: list[dict], dohvati, poznate: set, red: dict) -> tuple[list[dict], list[dict]]:
+    """
+    Trajni red: domene iz imenika se pamte; svaki dan se provjeravaju sve već prihvaćene i sljedećih NAJVISE_NOVIH
+    iz reda (kružno), a podstranice imenika pregledavaju se u kružnom prozoru. Tako svi kandidati dođu na red.
+    """
+    pregled_imenika = []
+    poznate = set(poznate)
+    vidjene = {d["domena"] for d in red["domene"]}
+    for imenik in imenici:
+        stanje = red["imenici"].setdefault(imenik["url"], {"pomak_stranica": 0})
+        try:
+            pregled = {}
+            nove = domene_iz_imenika(imenik["url"], dohvati, poznate, pregled, stanje["pomak_stranica"])
+            stanje["pomak_stranica"] = pregled.get("sljedeci_pomak_stranica", 0)
+            dodane = [n for n in nove if n["domena"] not in vidjene]
+            red["domene"] += dodane
+            vidjene |= {n["domena"] for n in dodane}
+            pregled_imenika.append({"url": imenik["url"], "pronadjeno_domena": len(nove), "novih_u_redu": len(dodane), **pregled})
+        except Exception as e:  # noqa: BLE001
+            pregled_imenika.append({"url": imenik["url"], "greska": str(e)[:200]})
+    prihvacene = set(red["prihvacene"])
+    cekaju = [d for d in red["domene"] if d["domena"] not in prihvacene and d["domena"] not in poznate]
+    prozor, red["pomak_domena"] = rotiraj(cekaju, red.get("pomak_domena", 0), NAJVISE_NOVIH)
+    stalni = [d for d in red["domene"] if d["domena"] in prihvacene]
+    pregled_imenika.append({"red_domena": len(red["domene"]), "ceka_provjeru": len(cekaju), "provjerava_se_danas": len(prozor),
+                            "prihvacenih_iz_imenika": len(stalni)})
+    return stalni + prozor, pregled_imenika
+
+
+def azuriraj_red(red: dict, rezultat: list[dict]) -> None:
+    iz_reda = {d["domena"] for d in red["domene"]}
+    for r in rezultat:
+        if r["domena"] in iz_reda:
+            if r.get("prihvacen") and r["domena"] not in red["prihvacene"]:
+                red["prihvacene"].append(r["domena"])
+            elif not r.get("prihvacen") and r["domena"] in red["prihvacene"]:
+                red["prihvacene"].remove(r["domena"])  # vraća se u kružni red
 
 
 def main():
@@ -332,19 +429,12 @@ def main():
     imenici = json.loads(DOMENE.read_text(encoding="utf-8")).get("imenici", []) if DOMENE.exists() else []
     trgovci = pocetne_domene(izvori, dodatne)
     poznate = {t["domena"] for t in trgovci} | {domena(i.get("stranica") or i.get("url") or "") for i in izvori}
-    # Nove domene iz javnih imenika cjenika (bez tražilice i bez ključa).
-    pregled_imenika = []
-    for imenik in imenici:
-        try:
-            pregled = {}
-            nove = domene_iz_imenika(imenik["url"], dohvati, poznate, pregled)[:NAJVISE_NOVIH]
-            pregled_imenika.append({"url": imenik["url"], "novih_domena": len(nove), **pregled})
-            poznate |= {n["domena"] for n in nove}
-            trgovci += nove
-        except Exception as e:  # noqa: BLE001
-            pregled_imenika.append({"url": imenik["url"], "greska": str(e)[:200]})
-    rezultat = run(trgovci, dohvati, smije)
+    red = ucitaj_red(RED)
+    trgovci_iz_imenika, pregled_imenika = trgovci_iz_imenika_s_redom(imenici, dohvati, poznate, red)
+    rezultat = run(trgovci + trgovci_iz_imenika, dohvati, smije)
     rezultat = dedupliciraj(rezultat)
+    azuriraj_red(red, rezultat)
+    spremi_red(RED, red)
     IZLAZ.parent.mkdir(parents=True, exist_ok=True)
     privremeno = IZLAZ.with_suffix(".tmp")
     privremeno.write_text(json.dumps({"azurirano": datetime.now(timezone.utc).isoformat(timespec="minutes"),
@@ -373,6 +463,8 @@ def izvori_iz_otkrivanja(put: Path) -> list[dict]:
         izvor = {"id": f"otkriveno:{k['domena']}", "naziv": k.get("naziv") or k["domena"], "vrsta": "trgovina",
                  "format": k["format"], "status": "provjereno", "omogucen": True, "otkriveno": True}
         izvor.update({"stranica": k["stranica"], "popis": True} if k["tip"] == "popis" else {"url": k["url"]})
+        if k.get("samo_gradjevinski"):
+            izvor["samo_gradjevinski"] = True
         izvori.append(izvor)
     return izvori
 
