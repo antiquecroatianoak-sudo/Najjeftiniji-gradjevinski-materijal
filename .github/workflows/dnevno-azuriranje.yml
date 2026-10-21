@@ -148,8 +148,12 @@ jobs:
           ok = [s for s in st["uvezeno"] if s["uspjeh"]]
           print(f"Uspješnih izvora: {len(ok)} od {len(st['uvezeno'])}")
           for s in st["uvezeno"]:
-              print(("OK " if s["uspjeh"] else "-- ") + json.dumps({k: s.get(k) for k in ("naziv", "url", "datum", "primljeno", "prihvaceno", "spojeno_u_izvoru", "ponuda_u_aplikaciji", "nedostupno", "odbaceno", "negradjevinsko", "proturjecna_jedinicna", "primjeri_proturjecnih", "iz_predmemorije", "danasnja_greska", "greska") if s.get(k) is not None}, ensure_ascii=False))
+              print(("OK " if s["uspjeh"] else "-- ") + json.dumps({k: s.get(k) for k in ("naziv", "url", "datum", "primljeno", "prihvaceno", "spojeno_u_izvoru", "ponuda_u_aplikaciji", "nedostupno", "odbaceno", "negradjevinsko", "proturjecna_jedinicna", "primjeri_proturjecnih", "osnova_kolicine", "nepoznati_stupci", "iz_predmemorije", "danasnja_greska", "greska") if s.get(k) is not None}, ensure_ascii=False))
           print("Brojke: " + json.dumps(st["brojke"], ensure_ascii=False))
+          from collections import Counter
+          osnova = sum((Counter(s.get("osnova_kolicine", {})) for s in ok), Counter())
+          print("Osnova količine svih ponuda iz cjenika (p potvrđeno jediničnom, c iz polja cjenika, j iz jedinične, "
+                "n samo naziv - ne rangira se, x proturječno - ne rangira se, - bez količine): " + json.dumps(dict(osnova), ensure_ascii=False))
           p = Path("site/data/proizvodi.json")
           if p.exists():
               d = json.loads(p.read_text())

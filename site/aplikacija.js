@@ -89,13 +89,15 @@ async function ucitajPodatke() {
     // Zaštita i za stare/offline cjenike: ne prikazuj ponude od jednog centa.
     podaci.proizvodi = podaci.proizvodi.map((p) => {
       const cijene = [];
+      const tragovi = [];
       for (let k = 0; k < p[5].length; k += 2) {
         const c = p[5][k + 1];
         if (typeof c === "number" && Number.isFinite(c) && Math.round(c * 100) > 1) {
           cijene.push(p[5][k], c);
+          tragovi.push(Array.isArray(p[8]) && Array.isArray(p[8][k / 2]) ? p[8][k / 2] : null);
         }
       }
-      return [...p.slice(0, 5), cijene, typeof p[6] === "string" ? p[6] : "", p[7] && typeof p[7] === "object" ? p[7] : null];
+      return [...p.slice(0, 5), cijene, typeof p[6] === "string" ? p[6] : "", p[7] && typeof p[7] === "object" ? p[7] : null, tragovi];
     }).filter((p) => p[5].length);
     if (!podaci.proizvodi.length) throw new Error("Nema valjanih cijena");
     rijeci = podaci.proizvodi.map((p) => normaliziraj(p[0]).split(" "));
@@ -181,9 +183,12 @@ function dozvoljeniLanci() {
   return jedna >= 0 && svi.has(jedna) ? new Set([jedna]) : svi;
 }
 
+// Trag cijene u službenom cjeniku: [redak, šifra, akcija, osnova količine, naziv akcije].
 function ponuda(i, lanac, cijena) {
-  const [, , iznos, jedinica, , , spec = "", meta = null] = podaci.proizvodi[i];
-  return { i, lanac, cijena, jedinica, spec, meta, poJedinici: iznos ? cijena / iznos : null,
+  const [, , iznos, jedinica, , cijene, spec = "", meta = null, tragovi = []] = podaci.proizvodi[i];
+  let trag = null;
+  for (let k = 0; k < cijene.length; k += 2) if (cijene[k] === lanac) { trag = (tragovi || [])[k / 2] || null; break; }
+  return { i, lanac, cijena, jedinica, spec, meta, trag, poJedinici: iznos ? cijena / iznos : null,
     vrstaNejasna: !!klasifikacija && !klasifikacija.vrstaProizvoda(i) };
 }
 
@@ -590,6 +595,32 @@ function datumCijene(lanac) {
   return /^\d{4}-\d{2}-\d{2}$/.test(d || "") ? d.split("-").reverse().join(".") + "." : "nepoznat";
 }
 
+const OSNOVA_KOLICINE = { p: "količinu potvrđuje cijena za jedinicu mjere", c: "količina iz cjenika",
+  j: "količina iz cijene za jedinicu mjere", n: "količina samo u nazivu, nije potvrđena · bez poretka",
+  x: "cijena za jedinicu mjere proturječi cijeni · bez poretka" };
+
+// Gdje je cijena u službenom cjeniku: redak, šifra, akcija i poveznica na datoteku cjenika.
+function opisTraga(p) {
+  const t = p.trag;
+  if (!t || t[0] === null || t[0] === undefined) return null;
+  const div = document.createElement("div");
+  div.className = "detalji trag-cijene";
+  const tekst = document.createElement("span");
+  tekst.textContent = ["Službeni cjenik", `redak ${t[0]}`, t[1] ? `šifra ${t[1]}` : "",
+    t[2] ? `akcija${t[4] ? `: ${t[4]}` : ""}` : "", OSNOVA_KOLICINE[t[3]] || ""].filter(Boolean).join(" · ");
+  div.appendChild(tekst);
+  const url = (podaci.urlLanaca || [])[p.lanac];
+  if (/^https:\/\//.test(url || "")) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.textContent = "Otvori cjenik";
+    div.appendChild(a);
+  }
+  return div;
+}
+
 // Izvor, stanje i datum provjere ponude (osobito oglasa). Poveznica vodi na izvornu ponudu.
 function opisPonude(meta) {
   const div = document.createElement("div");
@@ -707,11 +738,14 @@ function prikaziRezultate() {
       [kolicina, `${pakiranja} × ${euro(p.cijena)}`].filter(Boolean).join(" · ");
     sadrzaj.querySelector(".jedinicna").textContent = p.vrstaNejasna ? "Moguće podudaranje · vrsta za provjeru"
       : imaJedinicnu(p) ? `${euro(p.poJedinici)}/${oznakaJedinice(p.jedinica)}`
-      : p.meta?.razlog ? `Nije uspoređeno: ${p.meta.razlog}` : "Količina nije poznata · bez poretka";
+      : p.meta?.razlog ? `Nije uspoređeno: ${p.meta.razlog}`
+      : p.trag && ["n", "x"].includes(p.trag[3]) ? OSNOVA_KOLICINE[p.trag[3]] : "Količina nije poznata · bez poretka";
     sadrzaj.querySelector(".spec-polje").hidden = !p.spec;
     sadrzaj.querySelector(".specifikacija").textContent = p.spec || "";
     sadrzaj.querySelector(".datum-cijene").textContent = datumCijene(p.lanac);
     if (p.meta) sadrzaj.appendChild(opisPonude(p.meta));
+    const trag = opisTraga(p);
+    if (trag) sadrzaj.appendChild(trag);
     const mjesto = sadrzaj.querySelector(".mjesto");
     if (rb > 0) {
       mjesto.appendChild(gumb(`◀ ${rb + 1}. od ${ponude.length}`, "natrag", (e) => {

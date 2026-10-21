@@ -36,6 +36,7 @@ import urllib.parse
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -88,6 +89,9 @@ STUPCI = {
     "jedinicna": ["cijena za jedinicu mjere", "cijena jedinice mjere", "jedinicna cijena", "cijena po jedinici mjere", "unit price"],
     "barkod": ["barkod", "ean", "ean kod", "barcode"],
     "dostupnost": ["dostupnost", "dostupno", "raspolozivost"],
+    # Poseban oblik prodaje (akcija) i njegov naziv/uvjet: cijena u retku tada je cijena za vrijeme akcije.
+    "akcija": ["poseban oblik prodaje"],
+    "akcija_naziv": ["naziv posebnog oblika prodaje"],
 }
 
 BROJ = r"(\d+(?:[.,]\d+)?)"
@@ -160,15 +164,28 @@ def je_alat(naziv: str) -> bool:
     return bool(RE_ALAT.search(normaliziraj(naziv)))
 
 
-def jedinicna_se_slaze(cijene: list[float], jedinicna: float | None, m: tuple[float, str] | None) -> bool:
+def polje_jedinicne(cijena: float | None, posebna: float | None, jedinicna: float | None,
+                    m: tuple[float, str] | None) -> str | None:
     """
-    Slaže li se cijena za jedinicu mjere koju je trgovac objavio s cijenom i prepoznatom količinom (samo zaokruživanje
-    na 2 decimale). Prihvaća se i cijena za jedinicu jednaka cijeni (cijena po komadu/pakiranju). Bez jedinične cijene
-    ili količine nema se s čim usporediti.
+    Kojem polju pripada cijena za jedinicu mjere koju je trgovac objavio: "cijena" (MPC) ili "posebna" (posebna/akcijska
+    cijena), uz prepoznatu količinu i samo zaokruživanje na 2 decimale. "" = nije provjerljivo (bez jedinične cijene,
+    bez količine, komadi, ili jedinična jednaka cijeni pakiranja koje nije 1 osnovna jedinica: to nije podatak o osnovi
+    mjere, pa nije ni potvrda ni proturječje). None = ne odgovara nijednom polju, tj. redak proturječi sam sebi.
     """
     if not jedinicna or not m or m[1] == "kom":
-        return True
-    return any(abs(jedinicna - c / m[0]) <= 0.01 + 0.005 / m[0] + 1e-9 or abs(jedinicna - c) <= 0.01 + 1e-9 for c in cijene)
+        return ""
+    for polje, c in (("cijena", cijena), ("posebna", posebna)):
+        if c and abs(jedinicna - c / m[0]) <= 0.01 + 0.005 / m[0] + 1e-9:
+            return polje
+    if any(c and abs(jedinicna - c) <= 0.005 for c in (cijena, posebna)):
+        return ""
+    return None
+
+
+def jedinicna_se_slaze(cijene: list[float], jedinicna: float | None, m: tuple[float, str] | None) -> bool:
+    """Nije proturječje (vidi polje_jedinicne); cijene = [MPC, posebna]."""
+    cijene = list(cijene) + [None, None]
+    return polje_jedinicne(cijene[0], cijene[1], jedinicna, m) is not None
 
 
 def cijeli_komadi(r):
@@ -177,35 +194,41 @@ def cijeli_komadi(r):
 
 
 def mjera(kolicina: str, jedinica: str, cijena: float | None, jedinicna: float | None, naziv: str):
+    """(iznos, osnovna jedinica) ili None; vidi mjera_s_izvorom."""
+    return mjera_s_izvorom(kolicina, jedinica, cijena, jedinicna, naziv)[0]
+
+
+def mjera_s_izvorom(kolicina: str, jedinica: str, cijena: float | None, jedinicna: float | None, naziv: str):
     """
-    (iznos, osnovna jedinica) ili None. Redoslijed: neto količina + jedinica mjere iz cjenika,
-    zatim MPC / cijena za jedinicu mjere (oba obvezna u javnom cjeniku), pa naziv.
+    ((iznos, osnovna jedinica) ili None, izvor). Redoslijed: neto količina + jedinica mjere iz cjenika ("cjenik"),
+    zatim MPC / cijena za jedinicu mjere ("jedinicna", oba obvezna u javnom cjeniku), alat po komadu ("cjenik"),
+    naziv ("naziv"), pa jedna jedinica mjere iz cjenika ("cjenik").
     """
     jedinica = (jedinica or "").strip().lower().rstrip(".")
     broj = u_broj(kolicina)
     djelomican = bool(broj and JEDINICE.get(jedinica, ("",))[0] == "kom" and broj != int(broj))
     if broj and jedinica in JEDINICE:
         if (r := cijeli_komadi(u_osnovnu(broj, jedinica))) and not (r[1] == "kom" and r[0] == 1):
-            return r
+            return r, "cjenik"
     elif kolicina and (m := RE_JEDNO.search(str(kolicina))):
         if r := cijeli_komadi(u_osnovnu(u_broj(m.group(1)) or 0, m.group(2))):
-            return r
+            return r, "cjenik"
     # Za "kom" cijena za jedinicu mjere obično je po kg/l/m², a ta jedinica nije zapisana.
     if cijena and jedinicna and jedinica in JEDINICE and JEDINICE[jedinica][0] != "kom":
         osnovna, faktor = JEDINICE[jedinica]
         # Cijena za jedinicu mjere odnosi se na zadanu jedinicu (npr. €/kg ili €/m²).
         iznos = round(cijena * faktor / jedinicna, 6)
         if 0 < iznos <= NAJVISE[osnovna] and not (osnovna == "kom" and abs(iznos - 1) < 1e-9):
-            return iznos, osnovna
+            return (iznos, osnovna), "jedinicna"
     if je_alat(naziv):
-        return (1.0, "kom") if jedinica in ("kom", "komad", "kos") and not djelomican else None
+        return ((1.0, "kom"), "cjenik") if jedinica in ("kom", "komad", "kos") and not djelomican else (None, "")
     if r := iz_naziva(naziv):
-        return r
+        return r, "naziv"
     if jedinica in JEDINICE and not djelomican:
         osnovna, faktor = JEDINICE[jedinica]
         if faktor == 1:
-            return 1.0, osnovna  # cijena je za jednu jedinicu mjere (vaga, metraža, komad)
-    return None
+            return (1.0, osnovna), "cjenik"  # cijena je za jednu jedinicu mjere (vaga, metraža, komad)
+    return None, ""
 
 
 SPEC = [
@@ -287,7 +310,7 @@ def dekodiraj(sadrzaj: bytes) -> str:
     return sadrzaj.decode("latin-1")
 
 
-def citaj_csv(tekst: str, vlastiti: dict | None = None):
+def citaj_csv(tekst: str, vlastiti: dict | None = None, nepoznati: set | None = None):
     uzorak = tekst[:4096]
     try:
         dijalekt = csv.Sniffer().sniff(uzorak, delimiters=";,\t|")
@@ -299,9 +322,12 @@ def citaj_csv(tekst: str, vlastiti: dict | None = None):
     kljucevi = [_kljuc_stupca(z, vlastiti) for z in zaglavlje]
     if "naziv" not in kljucevi or "cijena" not in kljucevi:
         raise ValueError(f"CSV nema prepoznate stupce naziv i cijena: {zaglavlje}")
+    if nepoznati is not None:
+        nepoznati.update(z.strip() for z, k in zip(zaglavlje, kljucevi) if not k and z.strip())
     for red in redovi:
         zapis = {k: v.strip() for k, v in zip(kljucevi, red) if k}
         if zapis.get("naziv"):
+            zapis["_redak"] = redovi.line_num  # redak u izvornoj datoteci (zaglavlje je 1. redak)
             yield zapis
 
 
@@ -317,9 +343,10 @@ def popravi_xml(tekst: str) -> str:
     return re.sub(r"&(?![A-Za-z][A-Za-z0-9]*;|#\d+;|#x[0-9A-Fa-f]+;)", "&amp;", tekst)
 
 
-def citaj_xml(tekst: str, vlastiti: dict | None = None):
+def citaj_xml(tekst: str, vlastiti: dict | None = None, nepoznati: set | None = None):
     korijen = ET.fromstring(popravi_xml(tekst).encode("utf-8"))
     nadjeno = False
+    broj = 0
     for el in korijen.iter():
         djeca = list(el)
         if not djeca:
@@ -329,8 +356,12 @@ def citaj_xml(tekst: str, vlastiti: dict | None = None):
             k = _kljuc_stupca(re.sub(r"[_\-]", " ", d.tag.split("}")[-1]), vlastiti)
             if k and (d.text or "").strip():
                 zapis[k] = d.text.strip()
+            elif not k and nepoznati is not None and not list(d):
+                nepoznati.add(d.tag.split("}")[-1])
         if zapis.get("naziv") and zapis.get("cijena"):
             nadjeno = True
+            broj += 1
+            zapis["_redak"] = broj  # redni broj zapisa (artikla) u izvornoj XML datoteci
             yield zapis
     if not nadjeno:
         raise ValueError("XML nema zapisa s nazivom i cijenom")
@@ -400,7 +431,7 @@ def kljuc_oglasa(o: dict) -> str:
 
 
 # ---------- Obrada ----------
-def _procitaj(izvor: dict, sadrzaj) -> tuple[list, str]:
+def _procitaj(izvor: dict, sadrzaj, nepoznati: set | None = None) -> tuple[list, str]:
     tekst = dekodiraj(sadrzaj) if isinstance(sadrzaj, bytes) else sadrzaj
     if izvor.get("format") in ("oglasi-json", "web-json"):
         stavke = json.loads(tekst)
@@ -408,8 +439,8 @@ def _procitaj(izvor: dict, sadrzaj) -> tuple[list, str]:
             raise ValueError(f"{izvor['format']} mora biti popis zapisa")
         return stavke, tekst
     if izvor.get("format") == "xml":
-        return list(citaj_xml(tekst, izvor.get("stupci"))), tekst
-    return list(citaj_csv(tekst, izvor.get("stupci"))), tekst
+        return list(citaj_xml(tekst, izvor.get("stupci"), nepoznati)), tekst
+    return list(citaj_csv(tekst, izvor.get("stupci"), nepoznati)), tekst
 
 
 def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=None) -> tuple[dict, list[dict]]:
@@ -421,7 +452,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
     """
     rezerva = rezerva or getattr(ucitaj, "rezerva", None)
     sada = sada or datetime.now(timezone.utc)
-    lanci, vrste, stanje, datumi_lanaca = [], [], [], []
+    lanci, vrste, stanje, datumi_lanaca, url_lanaca = [], [], [], [], []
     svi: dict[str, dict] = {}
     vidjeni_oglasi: dict[str, str] = {}
     datumi = []
@@ -436,8 +467,9 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
             zapis_stanja["otkriveno"] = True
         stavke = datum = None
         greska = ""
+        nepoznati: set = set()
         try:
-            stavke, tekst = _procitaj(izvor, ucitaj(izvor))
+            stavke, tekst = _procitaj(izvor, ucitaj(izvor), nepoznati)
             # Datum objave: iz popisa datoteka ili iz zaglavlja XML-a, nikad vrijeme preuzimanja.
             if izvor.get("format") not in ("oglasi-json", "web-json"):
                 datum = datum_objave(izvor.get("datum")) or (datum_iz_xml(tekst) if izvor.get("format") == "xml" else None)
@@ -450,7 +482,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
             spremljeno = rezerva(izvor)
             if spremljeno:
                 try:
-                    stavke, tekst = _procitaj(izvor, spremljeno[0])
+                    stavke, tekst = _procitaj(izvor, spremljeno[0], nepoznati)
                     datum = datum_objave(spremljeno[1])
                     izvor["iz_predmemorije"], izvor["datum"] = True, spremljeno[1]
                     zapis_stanja["danasnja_greska"] = greska
@@ -472,8 +504,13 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
         lanci.append(izvor["naziv"])
         vrste.append(izvor.get("vrsta", "trgovina"))
         datumi_lanaca.append(zapis_stanja.get("datum", ""))
+        # Službena datoteka cjenika (ili naslovnica webshopa) iz koje je svaka cijena ovog izvora.
+        url_lanaca.append(izvor.get("url", "") if str(izvor.get("url", "")).startswith("https://") else "")
         primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = nedostupno = negradjevinsko = 0
         proturjecna_jedinicna, primjeri_proturjecnih = 0, []
+        # Osnova količine svake ponude: p potvrđena jediničnom cijenom, c iz polja cjenika, j izvedena iz jedinične cijene,
+        # n samo iz naziva (ne rangira se), x proturječi jediničnoj cijeni (ne rangira se), - bez količine.
+        osnove = Counter()
         spojeno_u_izvoru = barkod_druga_sifra = zasebne_varijante = 0
         sifre_barkoda: dict[str, str] = {}
         for s in stavke:
@@ -505,6 +542,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                     neuspordeno += 1
                 kljuc = f"oglas:{izvor['id']}:{s.get('id') or k}"
                 marka = ""
+                trag = [None, str(s.get("id") or ""), 0, "o"]
             elif izvor.get("format") == "web-json":
                 # Ponuda sa stranice proizvoda (schema.org): vrijeme provjere nije datum objave cijene.
                 provjereno = datetime.fromisoformat(s["provjereno"])
@@ -527,6 +565,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                     m = None
                     neuspordeno += 1
                 kljuc = (s.get("gtin") or "").strip() or f"{izvor['id']}:{s.get('sku') or s.get('url')}"
+                trag = [None, str(s.get("sku") or ""), 0, "w"]
             else:
                 # Proizvod koji trgovac navodi kao nedostupan ne može biti najpovoljnija ponuda.
                 if normaliziraj(s.get("dostupnost", "")) in ("nedostupan", "nedostupno", "ne", "0"):
@@ -543,18 +582,38 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                     negradjevinsko += 1
                     continue
                 marka = s.get("marka", "")
-                m = mjera(s.get("kolicina", ""), s.get("jedinica", ""), u_broj(s.get("cijena")), u_broj(s.get("jedinicna")), naziv)
+                mpc, posebna = u_broj(s.get("cijena")), u_broj(s.get("posebna"))
+                m, izvor_kolicine = mjera_s_izvorom(s.get("kolicina", ""), s.get("jedinica", ""), mpc, u_broj(s.get("jedinicna")), naziv)
                 spec = specifikacija(naziv, m[1]) if m else ""
                 # "KOM" bez poznatog sadržaja (npr. "GLET MASA 25/1") nije usporediv s drugim komadima,
                 # osim kad specifikacija (dimenzije, promjer, razred) određuje što je jedan komad.
                 if m == (1.0, "kom") and not u_broj(s.get("kolicina")) and not spec:
                     m = None
-                # Cijena za jedinicu mjere trgovca proturječi cijeni i količini: količina nije potvrđena, ponuda se ne rangira.
-                if not jedinicna_se_slaze(cijene, u_broj(s.get("jedinicna")), m):
+                # Cijena za jedinicu mjere vezana je uz MPC ili posebnu cijenu. Proturječje: količina nije potvrđena, ponuda
+                # se ne rangira. Količina samo iz naziva, bez potvrde jediničnom cijenom, također se ne rangira.
+                polje = polje_jedinicne(mpc, posebna, u_broj(s.get("jedinicna")), m)
+                if polje is None:
                     proturjecna_jedinicna += 1
                     if len(primjeri_proturjecnih) < 5:
-                        primjeri_proturjecnih.append({k: s.get(k) for k in ("naziv", "kolicina", "jedinica", "cijena", "posebna", "jedinicna")})
-                    m = None
+                        primjeri_proturjecnih.append({k: s.get(k) for k in ("_redak", "naziv", "kolicina", "jedinica", "cijena", "posebna", "jedinicna")})
+                    m, osnova = None, "x"
+                elif not m:
+                    osnova = "-"
+                elif polje:
+                    osnova = "p"
+                elif izvor_kolicine == "naziv":
+                    m, osnova = None, "n"
+                else:
+                    osnova = "j" if izvor_kolicine == "jedinicna" else "c"
+                osnove[osnova] += 1
+                if u_broj(s.get("jedinicna")) and m and m[1] != "kom" and polje == "" and m[0] != 1:
+                    osnove["jedinicna_jednaka_cijeni"] += 1
+                akcija = normaliziraj(s.get("akcija", "")) in ("da", "1", "true") or cijena != mpc
+                trag = [s.get("_redak"), (s.get("sifra") or "").strip(), int(akcija), osnova]
+                if akcija and (s.get("akcija_naziv") or "").strip():
+                    trag.append(s["akcija_naziv"].strip()[:60])
+                if akcija:
+                    osnove["akcija"] += 1
                 barkod = valjan_barkod(s.get("barkod"))
                 sifra = (s.get("sifra") or "").strip()
                 kljuc = barkod or f"{izvor['id']}:{sifra or normaliziraj(naziv)}"
@@ -579,17 +638,18 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                 zapis = svi.get(kljuc)
                 zasebne_varijante += 1
             if zapis is None:
-                zapis = svi[kljuc] = {"cijene": {}, "mjera": m, "spec": spec, "meta": meta, "najniza": None}
+                zapis = svi[kljuc] = {"cijene": {}, "tragovi": {}, "mjera": m, "spec": spec, "meta": meta, "najniza": None}
             zapis.setdefault("naziv_" + str(idx), naziv)
             if idx in zapis["cijene"]:
                 spojeno_u_izvoru += 1  # potpuno isti redak više puta u istom cjeniku
             if idx not in zapis["cijene"] or cijena < zapis["cijene"][idx]:
                 zapis["cijene"][idx] = cijena
+                zapis["tragovi"][idx] = trag
             if zapis["najniza"] is None or cijena < zapis["najniza"]:
                 zapis["najniza"], zapis["naziv"], zapis["marka"] = cijena, naziv, marka
         if prihvaceno == 0:
             # Cjenik bez ijedne dostupne ponude ne postaje prazna trgovina u aplikaciji.
-            lanci.pop(); vrste.pop(); datumi_lanaca.pop()
+            lanci.pop(); vrste.pop(); datumi_lanaca.pop(); url_lanaca.pop()
             stanje.append({**zapis_stanja, "uspjeh": False, "greska": "nema dostupnih ponuda", "primljeno": primljeno,
                            "nedostupno": nedostupno, "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata,
                            **({"negradjevinsko": negradjevinsko} if izvor.get("samo_gradjevinski") else {})})
@@ -600,7 +660,9 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                        "barkod_druga_sifra": barkod_druga_sifra, "zasebne_varijante": zasebne_varijante,
                        **({"negradjevinsko": negradjevinsko} if izvor.get("samo_gradjevinski") else {}),
                        **({"proturjecna_jedinicna": proturjecna_jedinicna, "primjeri_proturjecnih": primjeri_proturjecnih}
-                          if proturjecna_jedinicna else {}), "lanac": idx})
+                          if proturjecna_jedinicna else {}),
+                       **({"osnova_kolicine": dict(osnove)} if osnove else {}),
+                       **({"nepoznati_stupci": sorted(nepoznati)[:30]} if nepoznati else {}), "lanac": idx})
 
     proizvodi = []
     for z in svi.values():
@@ -611,6 +673,9 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
             broj_rijeci_marke(z["naziv"], z["marka"]),
             [x for lanac, c in cijene for x in (lanac, round(c, 2))],
             z["spec"], z["meta"],
+            # Trag svake cijene (isti redoslijed): [redak u izvornoj datoteci, šifra, 1 = akcija / posebna cijena,
+            # osnova količine, naziv akcije ako ga cjenik navodi].
+            [z["tragovi"][lanac] for lanac, _ in cijene],
         ])
     proizvodi.sort(key=lambda p: p[5][1])
     # Ponude u aplikaciji po izvoru (jedinstveni proizvodi tog izvora) i usklađenost s prihvaćenim retcima.
@@ -627,7 +692,8 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
         return None, stanje
     # Datum aplikacije je najstariji uključeni cjenik, da se ne prikazuje svježije od izvora.
     return {"verzija": 2, "datum": (min(datumi) if datumi else sada.date()).isoformat(), "azurirano": sada.isoformat(timespec="minutes"),
-            "lanci": lanci, "vrsteIzvora": vrste, "datumiLanaca": datumi_lanaca, "proizvodi": proizvodi}, stanje
+            "lanci": lanci, "vrsteIzvora": vrste, "datumiLanaca": datumi_lanaca, "urlLanaca": url_lanaca,
+            "proizvodi": proizvodi}, stanje
 
 
 # ---------- Stranice s popisom cjenika (NN 101/2026) ----------

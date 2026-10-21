@@ -101,8 +101,14 @@ po_nazivu = {}
 for p in podaci["proizvodi"]:
     po_nazivu.setdefault(p[0], []).append(p)
 cement = po_nazivu["Cement CEM II/B 25 kg"]
-assert len(cement) == 1 and cement[0][5] == [1, 7.9, 0, 8.5], "same barcode merges across stores, cheapest first"
-assert cement[0][2:4] == [25, "kg"] and cement[0][6] == "CEM II/B"
+# Trgovina B (XML) navodi cement bez neto količine i bez jedinične cijene: 25 kg piše samo u nazivu, pa ponuda nije
+# potvrđena i ne rangira se (zasebna stavka bez količine); trgovina A navodi 25 kg i 0,34 €/kg (potvrđeno).
+rang = [p for p in cement if p[3]]
+assert len(rang) == 1 and rang[0][5] == [0, 8.5] and rang[0][2:4] == [25, "kg"] and rang[0][6] == "CEM II/B"
+assert rang[0][8][0][3] == "p" and rang[0][8][0][0] == 2, "trace: source row 2, quantity confirmed by the unit price"
+bez = [p for p in cement if not p[3]]
+assert len(bez) == 1 and bez[0][5] == [1, 7.9] and bez[0][8][0][3] == "n", "name-only quantity is not ranked"
+assert podaci["urlLanaca"][:2] == ["", ""] and st["b"]["osnova_kolicine"].get("n", 0) >= 1
 eps10 = po_nazivu["Stiropor EPS 100 10 cm"][0]
 eps5 = po_nazivu["Stiropor EPS 100 5 cm"][0]
 assert eps10[5] == [0, 27.0], "special price is used when lower"
@@ -165,7 +171,8 @@ po = {p[0]: p for p in pg["proizvodi"]}
 glet = po["TERANIL EKSTRA GLET MASA, SAMOBORKA 25/1 (48#)"]
 assert glet[2:4] == [0, ""] and glet[5] == [0, 12.74], "25/1 alone is not a verified 25 kg: listed, unranked"
 cem = po["CEMENT 25KG ALPACEM ACEM 2-65 SPECIAL 42,5N CEM II/B-M (LL-V) #64"]
-assert cem[2:4] == [25, "kg"] and cem[5] == [0, 5.56] and cem[6] == "CEM II/B-M (LL-V) · 42,5 N", cem
+# 25 kg piše samo u nazivu (jedinica KOM, bez neto količine i jedinične cijene): vidljivo, bez poretka.
+assert cem[2:4] == [0, ""] and cem[5] == [0, 5.56] and cem[6] == "CEM II/B-M (LL-V) · 42,5 N" and cem[8][0][:4] == [3, "484512", 0, "n"], cem
 assert "STIROPOR EPS GRAFITNI 12CM BEZ PREKLOPA" not in po, "unavailable rows are not offered"
 assert stg[0]["nedostupno"] == 1 and stg[0]["prihvaceno"] == 2
 assert pg["datum"] == "2026-10-21", "date from the file listing, not sidrena_cijena_od"
@@ -179,6 +186,8 @@ pt, stt = u.obradi([{"id": "t", "naziv": "Top Alati", "format": "csv", "datum": 
 assert stt[0]["prihvaceno"] == 1 and stt[0]["nedostupno"] == 1
 kljuc10 = pt["proizvodi"][0]
 assert kljuc10[0] == "Produženi nasadni ključ, 10 mm" and kljuc10[5] == [0, 2.17] and kljuc10[2:4] == [1.0, "kom"] and kljuc10[6] == "10 mm"
+assert kljuc10[8] == [[2, "C5110", 1, "c", "Popust"]], "trace keeps row, code, promotion and its name from the list"
+assert set(stt[0]["nepoznati_stupci"]) >= {"sidrena_cijena_2026_09_10"} and "poseban_oblik_prodaje" not in stt[0]["nepoznati_stupci"]
 # Nazivi datoteka Top Alata i Vekera.
 HTML2 = ("<a href=\"https://top-alati.hr/user-content/cjenici/2026-10-21/prodavaonica_Optujska%20ulica%20169A-42000-"
          "Vara%C5%BEdin_P-W1_57_21-10-2026_07-53.csv\">x</a>"
@@ -204,7 +213,11 @@ pv, stv = u.obradi([{"id": "v", "naziv": "Veker", "format": "xml", "url": "https
                    lambda i: VEKER, sada)
 assert stv[0]["uspjeh"] and stv[0]["datum"] == "2026-10-21" and stv[0]["prihvaceno"] == 1, stv
 nexe = pv["proizvodi"][0]
-assert nexe[0] == "NEXE Cement 32,5R 25Kg" and nexe[2:4] == [25, "kg"] and nexe[5] == [0, 5.34] and nexe[6] == "32,5 R", nexe
+# Jedinica kom, cijena za jedinicu mjere 5,34 = cijena vreće (nije podatak o osnovi mjere), 25 kg samo u nazivu:
+# količina nije potvrđena, ponuda vidljiva bez poretka; trag: zapis 1, šifra 09040001.
+assert nexe[0] == "NEXE Cement 32,5R 25Kg" and nexe[2:4] == [0, ""] and nexe[5] == [0, 5.34] and nexe[6] == "32,5 R", nexe
+assert nexe[8] == [[1, "09040001", 0, "n"]] and stv[0]["osnova_kolicine"].get("n") == 1, stv
+assert pv["urlLanaca"] == ["https://www.veker.hr/wp-content/uploads/cjenici-webshop/cjenik.xml"]
 assert pv["datum"] == "2026-10-21"
 staro = VEKER.replace('generirano="2026-10-21', 'generirano="2026-10-01').replace("<vremenska_oznaka>2026-10-21", "<vremenska_oznaka>2026-10-01")
 assert u.obradi([{"id": "v", "naziv": "Veker", "format": "xml"}], lambda i: staro, sada)[1][0]["greska"] == "zastario cjenik od 2026-10-01"
