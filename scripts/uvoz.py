@@ -63,10 +63,11 @@ STUPCI = {
     "marka": ["marka", "marka proizvoda", "robna marka", "brand"],
     "cijena": ["mpc", "maloprodajna cijena", "cijena", "price", "mpc eur", "maloprodajna cijena eur"],
     "posebna": ["posebna cijena", "akcijska cijena", "mpc za vrijeme posebnog oblika prodaje", "special price"],
-    "jedinica": ["jedinica mjere", "jedinica", "jm", "unit"],
+    "jedinica": ["jedinica mjere", "mjerna jedinica", "jedinica", "jm", "unit"],
     "kolicina": ["neto kolicina", "kolicina", "neto kolicina proizvoda", "quantity"],
     "jedinicna": ["cijena za jedinicu mjere", "jedinicna cijena", "cijena po jedinici mjere", "unit price"],
     "barkod": ["barkod", "ean", "ean kod", "barcode"],
+    "dostupnost": ["dostupnost", "dostupno", "raspolozivost"],
 }
 
 BROJ = r"(\d+(?:[.,]\d+)?)"
@@ -160,6 +161,7 @@ def mjera(kolicina: str, jedinica: str, cijena: float | None, jedinicna: float |
 SPEC = [
     (re.compile(r"\b(eps)\s*-?\s*(\d{2,3}|f|t)\b", re.I), lambda m: f"EPS {m.group(2).upper()}"),
     (re.compile(r"\bxps\b", re.I), lambda m: "XPS"),
+    (re.compile(r"\bgrafit\w*", re.I), lambda m: "grafitni"),
     (re.compile(r"\bcem\s*(i{1,3}|iv|v)(?:\s*/\s*([ab]))?\b", re.I), lambda m: "CEM " + m.group(1).upper() + (f"/{m.group(2).upper()}" if m.group(2) else "")),
     # Razred čvrstoće cementa: 32,5 R i 42,5 N nisu isti proizvod.
     (re.compile(r"(?<![\d.,])(32|42|52)[.,]5\s*([rnl])?(?![a-z0-9])", re.I),
@@ -352,7 +354,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
         idx = len(lanci)
         lanci.append(izvor["naziv"])
         vrste.append(izvor.get("vrsta", "trgovina"))
-        primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = 0
+        primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = nedostupno = 0
         for s in stavke:
             primljeno += 1
             meta = None
@@ -383,6 +385,10 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
                 kljuc = f"oglas:{izvor['id']}:{s.get('id') or k}"
                 marka = ""
             else:
+                # Proizvod koji trgovac navodi kao nedostupan ne može biti najpovoljnija ponuda.
+                if normaliziraj(s.get("dostupnost", "")) in ("nedostupan", "nedostupno", "ne", "0"):
+                    nedostupno += 1
+                    continue
                 cijene = [c for c in (u_broj(s.get("cijena")), u_broj(s.get("posebna"))) if c and round(c, 2) > 0.01]
                 if not cijene:
                     odbaceno += 1
@@ -392,6 +398,10 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
                 marka = s.get("marka", "")
                 m = mjera(s.get("kolicina", ""), s.get("jedinica", ""), u_broj(s.get("cijena")), u_broj(s.get("jedinicna")), naziv)
                 spec = specifikacija(naziv, m[1]) if m else ""
+                # "KOM" bez poznatog sadržaja (npr. "GLET MASA 25/1") nije usporediv s drugim komadima,
+                # osim kad specifikacija (dimenzije, promjer, razred) određuje što je jedan komad.
+                if m == (1.0, "kom") and not u_broj(s.get("kolicina")) and not spec:
+                    m = None
                 barkod = (s.get("barkod") or "").strip()
                 kljuc = barkod or f"{izvor['id']}:{s.get('sifra') or normaliziraj(naziv)}"
             prihvaceno += 1
@@ -408,7 +418,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
                 zapis["najniza"], zapis["naziv"], zapis["marka"] = cijena, naziv, marka
         stanje.append({**zapis_stanja, "uspjeh": True, "primljeno": primljeno, "prihvaceno": prihvaceno,
                        "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata,
-                       "neusporedeno": neuspordeno})
+                       "neusporedeno": neuspordeno, "nedostupno": nedostupno})
 
     proizvodi = []
     for z in svi.values():

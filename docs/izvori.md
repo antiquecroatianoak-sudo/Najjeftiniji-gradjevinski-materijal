@@ -30,7 +30,7 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 | IKOMA | trgovina | neprovjereno | HTML katalog s cijenama (ikoma.hr); strojno čitljiv cjenik nije pronađen. |
 | Profi baucentar | trgovina | neprovjereno | Web trgovina (profibaucentar.hr); strojno čitljiv cjenik nije pronađen. |
 | Bačelić | trgovina | blokirano | bacelic.hr/cjenik navodi CSV/XML; dohvat vraća 403 i ChatGPT-u i ovom okruženju (21.10.2026.). Pristup se ne zaobilazi. |
-| Gavroprom | trgovina | neprovjereno | gavroprom.hr/cjenik: ChatGPT je 21.10.2026. dohvatio stranicu (200) i noviji CSV web trgovine od 21.10.2026. Čitač `popis` uzima najnoviji CSV po poslovnici, datum iz naziva datoteke i kodira Unicode u putu. Iz ovog okruženja host blokiran (403); stvarni stupci još nisu provjereni uvozom. |
+| Gavroprom | trgovina | neprovjereno | gavroprom.hr/cjenik: ChatGPT je 21.10.2026. dohvatio stranicu (200) i noviji CSV web trgovine od 21.10.2026. Čitač `popis` uzima najnoviji CSV po poslovnici, datum iz naziva datoteke i kodira Unicode u putu. Iz ovog okruženja host blokiran (403); stvarni stupci još nisu provjereni uvozom. Uvoz je prilagođen stvarnom zaglavlju (`mjerna_jedinica`, `dostupnost`; `sidrena_cijena_od` nije datum cjenika), provjereno na stvarnim retcima koje je dostavio ChatGPT. Uključuje se nakon punog uvoza stvarne datoteke. |
 | Njuškalo | oglasnik | blokirano | Službeni API nije pronađen; postoje samo komercijalni scraperi trećih strana. Automatsko prikupljanje bez dopuštenja se ne radi. |
 | Index Oglasi | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Plavi oglasnik | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
@@ -51,6 +51,11 @@ svaka poslovnica je zaseban izvor jer su cijene po poslovnici. `"poslovnice"` po
 Datum cjenika je datum objave koji navodi izvor, nikad vrijeme preuzimanja. Cjenik bez datuma ili stariji od 3 dana ne uvozi se
 (`stanje-izvora.json` navodi razlog), a datum u aplikaciji je najstariji uključeni cjenik. Isti barkod s različitom
 količinom, jedinicom ili specifikacijom u dva izvora ne spaja se u jednu ponudu.
+
+## Pravila za retke trgovaca
+- Redak s `dostupnost` = nedostupan ne uvozi se (broji se u `nedostupno`).
+- "KOM" bez poznatog sadržaja (npr. „GLET MASA 25/1”) ostaje vidljiv bez poretka, osim kad specifikacija (dimenzije, promjer, razred) određuje komad.
+- `sidrena_cijena` i `sidrena_cijena_od` nisu trenutna cijena ni datum cjenika.
 
 ## Oglasi: oblik `oglasi-json`
 Popis objekata: `id, naziv, cijena, valuta, cijenaNaUpit, pregovaranje, kolicina, jedinica (kg/l/m/m2/m3/kom),

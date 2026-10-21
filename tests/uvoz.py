@@ -142,6 +142,22 @@ pala = u.razlozi_izvore([{"id": "g", "naziv": "G", "stranica": "https://x.invali
                         lambda url: (_ for _ in ()).throw(OSError("403")))
 _, st5 = u.obradi(pala, lambda i: b"", sada)
 assert st5[0]["uspjeh"] is False and "popis cjenika nedostupan" in st5[0]["greska"]
+# Stvarni retci iz Gavropromova CSV-a od 21.10.2026. (zaglavlje i retci kako ih je dostavio ChatGPT na kosarica #4).
+GAVRO = ('naziv;šifra;marka;mjerna_jedinica;jedinična_cijena;maloprodajna_cijena;poseban_oblik_prodaje;'
+         'naziv_posebnog_oblika_prodaje;sidrena_cijena;sidrena_cijena_od;barkod;dostupnost\n'
+         '"TERANIL EKSTRA GLET MASA, SAMOBORKA 25/1 (48#)";"00007";"SAMOBORKA";"KOM";;12.74;"ne";;12.74;2026-09-10;;"dostupan"\n'
+         '"CEMENT 25KG ALPACEM ACEM 2-65 SPECIAL 42,5N CEM II/B-M (LL-V) #64";"484512";"ALPACEM";"KOM";;5.56;"ne";;5.56;2026-09-10;;"dostupan"\n'
+         '"STIROPOR EPS GRAFITNI 12CM BEZ PREKLOPA";"00071";"OSTALO";"M2";;15.87;"ne";;15.87;2026-09-10;;"nedostupan"\n')
+pg, stg = u.obradi([{"id": "g", "naziv": "Gavroprom", "format": "csv", "datum": "2026-10-21"}], lambda i: GAVRO, sada)
+po = {p[0]: p for p in pg["proizvodi"]}
+glet = po["TERANIL EKSTRA GLET MASA, SAMOBORKA 25/1 (48#)"]
+assert glet[2:4] == [0, ""] and glet[5] == [0, 12.74], "25/1 alone is not a verified 25 kg: listed, unranked"
+cem = po["CEMENT 25KG ALPACEM ACEM 2-65 SPECIAL 42,5N CEM II/B-M (LL-V) #64"]
+assert cem[2:4] == [25, "kg"] and cem[5] == [0, 5.56] and cem[6] == "CEM II/B · 42,5 N", cem
+assert "STIROPOR EPS GRAFITNI 12CM BEZ PREKLOPA" not in po, "unavailable rows are not offered"
+assert stg[0]["nedostupno"] == 1 and stg[0]["prihvaceno"] == 2
+assert pg["datum"] == "2026-10-21", "date from the file listing, not sidrena_cijena_od"
+assert u.specifikacija("STIROPOR EPS GRAFITNI 12CM BEZ PREKLOPA", "m2") == "grafitni · 120 mm"
 # Bez izvora nema objave
 assert u.obradi([], lambda i: b"", sada)[0] is None
 print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source")
