@@ -125,19 +125,19 @@ assert p4 is None
 assert [x["greska"] for x in st4] == ["zastario cjenik od 2026-10-06", "nepoznat datum cjenika"]
 # Popis cjenika na stranici: najnoviji CSV po poslovnici, datum iz naziva, Unicode put kodiran.
 HTML = """<a href="/cjenici/internet-trgovina_Av._Većeslava_Holjevca_42b_Gavroprom_12_21.10.2026_07.45.09.153.csv">CSV</a>
-<a href="/cjenici/internet-trgovina_Av._Većeslava_Holjevca_42b_Gavroprom_12_20.10.2026_07.40.00.001.csv">CSV</a>
+<a href="/cjenici/internet-trgovina_Av._Većeslava_Holjevca_42b_Gavroprom_11_20.10.2026_07.40.00.001.csv">CSV</a>
 <a href="/cjenici/internet-trgovina_Av._Većeslava_Holjevca_42b_Gavroprom_12_21.10.2026_07.45.09.153.xml">XML</a>
 <a href='https://www.primjer.invalid/cjenici/poslovnica_Ilica_1_Gavroprom_3_16.10.2026_07.00.00.csv'>stari</a>
 <a href="/o-nama">O nama</a>"""
 c = u.cjenici_sa_stranice(HTML, "https://www.primjer.invalid/cjenik")
-assert [x["poslovnica"] for x in c] == ["internet-trgovina_Av._Većeslava_Holjevca_42b_Gavroprom_12", "poslovnica_Ilica_1_Gavroprom_3"]
+assert [x["poslovnica"] for x in c] == ["internet-trgovina_Av._Većeslava_Holjevca_42b_Gavroprom", "poslovnica_Ilica_1_Gavroprom"]
 assert c[0]["datum"] == "2026-10-21" and c[1]["datum"] == "2026-10-16"
 assert c[0]["url"] == ("https://www.primjer.invalid/cjenici/internet-trgovina_Av._Ve%C4%87eslava_Holjevca_42b_"
                        "Gavroprom_12_21.10.2026_07.45.09.153.csv"), c[0]["url"]
 c[0]["url"].encode("ascii")
 razl = u.razlozi_izvore([{"id": "g", "naziv": "G", "format": "csv", "stranica": "https://www.primjer.invalid/cjenik",
                           "popis": True, "poslovnice": ["internet trgovina"]}], lambda url: HTML.encode())
-assert [(x["naziv"], x["datum"]) for x in razl] == [("G · internet-trgovina Av. Većeslava Holjevca 42b Gavroprom 12", "2026-10-21")]
+assert [(x["naziv"], x["datum"]) for x in razl] == [("G · internet-trgovina Av. Većeslava Holjevca 42b Gavroprom", "2026-10-21")], razl
 pala = u.razlozi_izvore([{"id": "g", "naziv": "G", "stranica": "https://x.invalid/", "popis": True}],
                         lambda url: (_ for _ in ()).throw(OSError("403")))
 _, st5 = u.obradi(pala, lambda i: b"", sada)
@@ -198,10 +198,14 @@ staro = VEKER.replace('generirano="2026-10-21', 'generirano="2026-10-01').replac
 assert u.obradi([{"id": "v", "naziv": "Veker", "format": "xml"}], lambda i: staro, sada)[1][0]["greska"] == "zastario cjenik od 2026-10-01"
 bez = VEKER.replace(' generirano="2026-10-21T07:30:09+02:00"', '').replace("<vremenska_oznaka>2026-10-21T07:30:09+02:00</vremenska_oznaka>", "")
 assert u.obradi([{"id": "v", "naziv": "Veker", "format": "xml"}], lambda i: bez, sada)[1][0]["greska"] == "nepoznat datum cjenika", "referentni_datum is never the price date"
+# Neoznačeni href i upit iza nastavka.
+cn = u.cjenici_sa_stranice("<a href=/c/web_Trg_1_X_01_5_21.10.2026_07.00.00.csv?v=2>x</a>", "https://x.invalid/")
+assert [x["url"] for x in cn] == ["https://x.invalid/c/web_Trg_1_X_01_5_21.10.2026_07.00.00.csv"], cn
 # TERMO-METAL Pakrac: datum GGGGMMDD-HHMM u nazivu.
 ctm = u.cjenici_sa_stranice('<a href="https://termo-metal.hr/sidrena/cjenik/internet-trgovina_trg-76-bataljuna-7-34550-pakrac_01_28_20261021-0110.xml">x</a>',
                             "https://termo-metal.hr/home/cjenik/", "xml")
 assert [x["datum"] for x in ctm] == ["2026-10-21"]
+assert ctm[0]["poslovnica"] == "internet-trgovina_trg-76-bataljuna-7-34550-pakrac_01", "storage number 28 is not part of the outlet"
 # Bez izvora nema objave
 assert u.obradi([], lambda i: b"", sada)[0] is None
 print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source")

@@ -457,7 +457,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None) -> tuple[di
 # ---------- Stranice s popisom cjenika (NN 101/2026) ----------
 # Naziv datoteke: <vrsta>_<adresa>_<trgovac>_<oznaka>_<DD.MM.GGGG>_<HH.MM.SS[.mmm]>.csv
 # (trgovci pišu i DD-MM-GGGG_HH-MM ili GGGGMMDDTHHMMSS)
-RE_DATOTEKA = re.compile(r"""href\s*=\s*["']([^"']+?\.(csv|xml))["']""", re.I)
+RE_DATOTEKA = re.compile(r"""href\s*=\s*["']?([^"'\s>]+?\.(csv|xml))(?=["'\s>?#])""", re.I)
 RE_DATUM_DATOTEKE = re.compile(r"[_-](\d{2})[.-](\d{2})[.-](\d{4})(?:_(\d{2})[.-](\d{2})(?:[.-](\d{2}))?)?[^/]*\.(?:csv|xml)$", re.I)
 RE_DATUM_KOMPAKTNO = re.compile(r"[_-]?(\d{4})(\d{2})(\d{2})[T-](\d{2})(\d{2})(\d{2})?[^/]*\.(?:csv|xml)$", re.I)
 
@@ -480,7 +480,8 @@ def cjenici_sa_stranice(html: str, stranica: str, oblik: str = "csv") -> list[di
         else:
             continue  # bez datuma u nazivu (npr. stalni "cjenik.xml") datum objave nije poznat
         vrijeme = datetime(int(g), int(mj), int(d), int(h or 0), int(mi or 0), int(se or 0))
-        poslovnica = ime[: m.start()]
+        # Zadnji broj prije datuma je broj pohrane koji raste sa svakom objavom, ne oznaka poslovnice.
+        poslovnica = re.sub(r"_\d+$", "", ime[: m.start()])
         apsolutno = urllib.parse.urljoin(stranica, put)
         dijelovi = urllib.parse.urlsplit(apsolutno)
         url = urllib.parse.urlunsplit(dijelovi._replace(path=urllib.parse.quote(dijelovi.path, safe="/%._-~")))

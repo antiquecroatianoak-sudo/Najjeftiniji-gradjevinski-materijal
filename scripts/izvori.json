@@ -158,6 +158,65 @@
       "stranica": "https://termometal.hr/"
     },
     {
+      "id": "akord-zupanja",
+      "naziv": "Akord Županja",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://www.akord-zupanja.hr/cjenik/",
+      "popis": true,
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Službena stranica cjenika (ChatGPT, 21.10.2026.). Datoteke i stupci još nisu viđeni."
+    },
+    {
+      "id": "gradjevinska-apoteka",
+      "naziv": "Građevinska apoteka",
+      "vrsta": "trgovina",
+      "format": "xml",
+      "stranica": "https://gradjevinska-apoteka.hr/sidrene-cijene/",
+      "url": "https://gradjevinska-apoteka.hr/sidrena-cijena.xml",
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Službena stranica navodi stalni XML (ChatGPT, 21.10.2026.). Datum mora doći iz zaglavlja XML-a; struktura još nije viđena."
+    },
+    {
+      "id": "gradnjainvest",
+      "naziv": "Gradnja invest",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://katalog.gradnjainvest.hr/",
+      "popis": true,
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "CSV poveznica u podnožju kataloga (ChatGPT, 21.10.2026.). Datoteka još nije viđena."
+    },
+    {
+      "id": "telack",
+      "naziv": "Telack",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://telack.shop/",
+      "popis": true,
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "CSV/XML poveznice u podnožju (ChatGPT, 21.10.2026.). Datoteke još nisu viđene; asortiman treba potvrditi."
+    },
+    {
+      "id": "mirakul",
+      "naziv": "Mirakul inovativna grijanja",
+      "vrsta": "trgovina",
+      "format": "xml",
+      "stranica": "https://www.mirakul-inovativna-grijanja.hr/",
+      "popis": true,
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "XML poveznica u podnožju (ChatGPT, 21.10.2026.). Oprema za grijanje; uključuje se samo za građevinski materijal/opremu."
+    },
+    {
       "id": "njuskalo",
       "naziv": "Njuškalo",
       "vrsta": "oglasnik",

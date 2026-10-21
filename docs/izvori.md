@@ -39,12 +39,17 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 | Petrokov | trgovina | neprovjereno | petrokov.hr dostupna (200); cjenik nije pronađen. |
 | TERMO-METAL (Pakrac) | trgovina | neprovjereno | termo-metal.hr/home/cjenik (200) vodi na današnji XML s datumom u nazivu; struktura još nije viđena. |
 | Termometal (Garešnica) | trgovina | neprovjereno | Drugi trgovac (termometal.hr); cjenik nije pronađen. |
+| Akord Županja | trgovina | neprovjereno | akord-zupanja.hr/cjenik — službena stranica cjenika; datoteke još nisu viđene. |
+| Građevinska apoteka | trgovina | neprovjereno | Stranica navodi stalni `sidrena-cijena.xml`; datum mora doći iz zaglavlja XML-a; struktura još nije viđena. |
+| Gradnja invest | trgovina | neprovjereno | CSV u podnožju kataloga; datoteka još nije viđena. |
+| Telack | trgovina | neprovjereno | CSV/XML u podnožju; datoteke i asortiman još nisu provjereni. |
+| Mirakul inovativna grijanja | trgovina | neprovjereno | XML u podnožju; oprema za grijanje. |
 | Njuškalo | oglasnik | blokirano | Službeni API nije pronađen; automatsko prikupljanje bez dopuštenja se ne radi. |
 | Index Oglasi | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Plavi oglasnik | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Facebook Marketplace | oglasnik | blokirano | Zahtijeva prijavu; prijave i CAPTCHA se ne zaobilaze. |
 
-Popisano je 14 različitih trgovaca (poslovnice istog trgovca ne broje se zasebno). **Uključeno: 0.** Statusi 403/503 i
+Popisano je 19 različitih trgovaca (poslovnice istog trgovca ne broje se zasebno). **Uključeno: 0.** Statusi 403/503 i
 podaci o datotekama potječu iz ChatGPT-ova okruženja; iz ovog razvojnog okruženja svi ti hostovi su blokirani.
 
 Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
@@ -56,7 +61,8 @@ Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
 
 Izvor sa `"popis": true` i `"stranica"` čita stranicu s popisom datoteka (oblik naziva prema NN 101/2026:
 `<vrsta>_<adresa>_<trgovac>_<oznaka>_<DD.MM.GGGG>_<HH.MM.SS>.csv`) i za svaku poslovnicu uzima najnoviju datoteku;
-svaka poslovnica je zaseban izvor jer su cijene po poslovnici. `"poslovnice"` po potrebi ograničava na npr. web trgovinu.
+svaka poslovnica je zaseban izvor jer su cijene po poslovnici. Broj pohrane (zadnji broj prije datuma, raste sa svakom
+objavom) ne ulazi u oznaku poslovnice, pa stare datoteke ne postaju lažne poslovnice. `"poslovnice"` po potrebi ograničava na npr. web trgovinu.
 
 Datum cjenika je datum objave koji navodi izvor, nikad vrijeme preuzimanja. Cjenik bez datuma ili stariji od 3 dana ne uvozi se
 (`stanje-izvora.json` navodi razlog), a datum u aplikaciji je najstariji uključeni cjenik. Isti barkod s različitom
