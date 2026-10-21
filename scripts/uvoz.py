@@ -768,6 +768,16 @@ def s_predmemorijom(izvori: list[dict], ucitaj, mapa: Path):
     return rezultat, ucitaj_ili_predmemorija, preuzeto
 
 
+def spremi_uspjesne(stanje: list[dict], po_id: dict, preuzeto: dict, mapa: Path) -> None:
+    """
+    Sprema se samo današnji sadržaj koji je i obrađen; neispravan današnji sadržaj ne briše zadnji valjani.
+    Izvori bez datuma objave (ponude sa stranica proizvoda, oglasi) imaju vlastitu provjeru starosti i ne spremaju se ovdje.
+    """
+    for s in stanje:
+        if s["uspjeh"] and s["id"] in preuzeto and not s.get("iz_predmemorije") and s.get("datum"):
+            spremi_predmemoriju(mapa, po_id[s["id"]], preuzeto[s["id"]], s["datum"])
+
+
 def objavi_atomski(podaci: dict, put: Path) -> None:
     """Novi cjenik zamjenjuje stari tek kad je cijeli zapisan i valjan."""
     if not (podaci.get("verzija") == 2 and podaci.get("proizvodi") and podaci.get("lanci")
@@ -817,10 +827,7 @@ def main():
     izvori, ucitaj, preuzeto = s_predmemorijom(razlozi_izvore(aktivni, dohvati_stranicu), ucitaj, a.predmemorija)
     podaci, stanje = obradi(izvori, ucitaj)
     po_id = {i["id"]: i for i in izvori}
-    for s in stanje:
-        # Sprema se samo današnji sadržaj koji je i obrađen; neispravan današnji sadržaj ne briše zadnji valjani.
-        if s["uspjeh"] and s["id"] in preuzeto and not s.get("iz_predmemorije"):
-            spremi_predmemoriju(a.predmemorija, po_id[s["id"]], preuzeto[s["id"]], s["datum"])
+    spremi_uspjesne(stanje, po_id, preuzeto, a.predmemorija)
     brojke = brojke_uvoza(stanje, podaci)
     STANJE.parent.mkdir(parents=True, exist_ok=True)
     STANJE.write_text(json.dumps({"azurirano": datetime.now(timezone.utc).isoformat(timespec="minutes"), "brojke": brojke,

@@ -112,6 +112,12 @@ assert fuga[3] == "kg" and fuga[7]["napomena"] == "cijena sa stranice proizvoda 
 staro = [{**ponude[0], "provjereno": (sada - timedelta(days=4)).isoformat(timespec="minutes")}]
 pz, sz = u.obradi([izvori[1]], lambda i: json.dumps(staro), sada)
 assert pz is None and sz[0]["greska"] == "nema dostupnih ponuda" and sz[0]["zastarjelo"] == 1, sz
+# Stvarni nalaz (run 33): uspješan web izvor nema datum objave; spremanje predmemorije cjenika ga preskače (bez KeyError).
+import tempfile
+with tempfile.TemporaryDirectory() as tmp:
+    u.spremi_uspjesne(st, {i["id"]: i for i in izvori}, {"c": CJENIK.encode(), "web:shop.hr": b"[]"}, Path(tmp))
+    indeks = json.loads((Path(tmp) / "indeks.json").read_text())
+    assert list(indeks) == ["c"], indeks
 print("WEBSHOP PASS: sitemap index → product pages, robots.txt, other domain, price on request, non-EUR, out of stock, "
       "price range, VAT stated/text/missing/excluded, @graph, JS challenge blocked, rotation, per-shop time budget, cache expiry, "
-      "import ranked vs unranked, no publication date, GTIN merge with price list, stale web offers excluded")
+      "import ranked vs unranked, no publication date, GTIN merge with price list, stale web offers excluded, web source not written to the price-list cache")
