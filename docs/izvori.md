@@ -1,8 +1,8 @@
-# Izvori cijena — stanje provjere (20.10.2026.)
+# Izvori cijena — stanje provjere (21.10.2026.)
 
 Uvoze se samo izvori koje je čovjek provjerio i uključio u `scripts/izvori.json`
-(`"status": "provjereno"`, `"omogucen": true`). Trenutno **nijedan izvor nije uključen**,
-pa aplikacija nema cjenik i ne objavljuje se. Nijedna cijena nije izmišljena.
+(`"status": "provjereno"`, `"omogucen": true`). Uključena su **3 trgovca** (Gavroprom, Top Alati, Veker), provjerena stvarnim uvozom cijelih datoteka.
+Nijedna cijena nije izmišljena.
 
 ## Pravna osnova za trgovine
 - Odluka o objavi cjenika proizvoda i usluga kao mjera izravne kontrole cijena, **NN 101/2026**
@@ -25,9 +25,9 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 
 | Izvor | Vrsta | Stanje | Što je utvrđeno (21.10.2026.) |
 |---|---|---|---|
-| Gavroprom | trgovina | neprovjereno | Stranica i CSV od 21.10.2026. dostupni ChatGPT-u (3633 retka). Uvoz prilagođen stvarnom zaglavlju i retcima. Čeka puni uvoz stvarne datoteke. |
-| Top Alati | trgovina | neprovjereno | CSV poslovnice Varaždin od 21.10.2026. dostupan ChatGPT-u (16834 retka, 2605 dostupno). Uvoz prilagođen stvarnom zaglavlju i retku. Čeka puni uvoz. |
-| Veker | trgovina | neprovjereno | Stalni `cjenik.xml` (200, 3,1 MB, 21.10.2026.); datum iz `generirano`/`vremenska_oznaka`, ne iz `referentni_datum`. Struktura provjerena na stvarnom retku; čeka puni uvoz. |
+| Gavroprom | trgovina | **uključeno** | Stvarni uvoz 21.10.2026.: 3633 primljeno, 2129 prihvaćeno, 1504 nedostupno; datum iz naziva datoteke. |
+| Top Alati | trgovina | **uključeno** | Stvarni uvoz poslovnice Varaždin 21.10.2026.: 16834 primljeno, 2605 prihvaćeno, 14229 nedostupno. Poslovnice su zasebni izvori, ali jedan trgovac. |
+| Veker | trgovina | **uključeno** | Stvarni uvoz XML-a 21.10.2026.: 3791 primljeno, 3712 prihvaćeno, 79 nedostupno; datum iz `generirano`. |
 | Pevex | trgovina | blokirano | Službena stranica sidrene-cijene vodi na `store-3/aktualni.csv`; dohvat 403. |
 | Bauhaus | trgovina | blokirano | Dohvat 403. Javni cjenik obvezan od 17.11.2026. |
 | Bačelić | trgovina | blokirano | Stranica navodi CSV/XML; dohvat 403. |
@@ -49,8 +49,8 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 | Plavi oglasnik | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Facebook Marketplace | oglasnik | blokirano | Zahtijeva prijavu; prijave i CAPTCHA se ne zaobilaze. |
 
-Popisano je 19 različitih trgovaca (poslovnice istog trgovca ne broje se zasebno). **Uključeno: 0.** Statusi 403/503 i
-podaci o datotekama potječu iz ChatGPT-ova okruženja; iz ovog razvojnog okruženja svi ti hostovi su blokirani.
+Popisano je 19 različitih trgovaca (poslovnice istog trgovca ne broje se zasebno). **Uključeno: 3** (Gavroprom, Top Alati, Veker). Statusi 403/503, brojke stvarnog uvoza i
+podaci o datotekama potječu iz ChatGPT-ova okruženja (verzija 44655df); iz ovog razvojnog okruženja ti hostovi su blokirani.
 
 Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
 

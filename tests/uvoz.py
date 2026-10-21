@@ -153,7 +153,7 @@ po = {p[0]: p for p in pg["proizvodi"]}
 glet = po["TERANIL EKSTRA GLET MASA, SAMOBORKA 25/1 (48#)"]
 assert glet[2:4] == [0, ""] and glet[5] == [0, 12.74], "25/1 alone is not a verified 25 kg: listed, unranked"
 cem = po["CEMENT 25KG ALPACEM ACEM 2-65 SPECIAL 42,5N CEM II/B-M (LL-V) #64"]
-assert cem[2:4] == [25, "kg"] and cem[5] == [0, 5.56] and cem[6] == "CEM II/B · 42,5 N", cem
+assert cem[2:4] == [25, "kg"] and cem[5] == [0, 5.56] and cem[6] == "CEM II/B-M (LL-V) · 42,5 N", cem
 assert "STIROPOR EPS GRAFITNI 12CM BEZ PREKLOPA" not in po, "unavailable rows are not offered"
 assert stg[0]["nedostupno"] == 1 and stg[0]["prihvaceno"] == 2
 assert pg["datum"] == "2026-10-21", "date from the file listing, not sidrena_cijena_od"
@@ -206,6 +206,16 @@ ctm = u.cjenici_sa_stranice('<a href="https://termo-metal.hr/sidrena/cjenik/inte
                             "https://termo-metal.hr/home/cjenik/", "xml")
 assert [x["datum"] for x in ctm] == ["2026-10-21"]
 assert ctm[0]["poslovnica"] == "internet-trgovina_trg-76-bataljuna-7-34550-pakrac_01", "storage number 28 is not part of the outlet"
+# Sastav cementa i alat (pregled ChatGPT-a na stvarnim datotekama).
+assert u.specifikacija("CEMENT 25KG ALPACEM ACEM 2-65 SPECIAL 42,5N CEM II/B-M (LL-V) #64", "kg") == "CEM II/B-M (LL-V) · 42,5 N"
+assert u.specifikacija("Cement CEM II/B-S 42,5 N 25 kg", "kg") != u.specifikacija("Cement CEM II/B-M (LL-V) 42,5 N 25 kg", "kg")
+assert u.specifikacija("Cement CEM I 52,5 R 25 kg", "kg") == "CEM I · 52,5 R"
+assert u.mjera("", "kom", 12.0, None, "Čekić bravarski 500 g") == (1.0, "kom"), "a hammer is priced per piece, never per kg"
+assert u.specifikacija("Čekić bravarski 500 g", "kom") != u.specifikacija("Čekić bravarski 800 g", "kom")
+assert u.mjera("", "kom", 9.0, None, "Libela aluminijska 60 cm") == (1.0, "kom")
+assert u.mjera("", "kg", 9.0, None, "Čekić 500 g") is None, "a tool sold per kg is not comparable"
+assert u.mjera("25", "kg", 5.0, None, "Cement 25 kg") == (25, "kg"), "materials are unaffected"
+assert u.mjera("", "kom", 5.56, None, "CEMENT 25KG ALPACEM") == (25, "kg")
 # Bez izvora nema objave
 assert u.obradi([], lambda i: b"", sada)[0] is None
 print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source")

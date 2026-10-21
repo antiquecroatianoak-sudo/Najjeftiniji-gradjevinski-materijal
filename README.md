@@ -8,9 +8,9 @@ ne dijeli podatke s njom.
 2. Za svaku stavku vidiš najpovoljniju ponudu po m², m³, m, kg, l ili komadu, samo među proizvodima iste specifikacije.
 3. Usporedi cijeli popis po trgovinama ili kupi sve u jednoj; cijena se računa za cijela pakiranja.
 
-**Stanje:** cijene još nisu dostupne. Trgovci moraju objavljivati strojno čitljive cjenike od 17.11.2026.
-(NN 101/2026, NN 110/2026); nijedan izvor još nije provjeren. Detalji: [docs/izvori.md](docs/izvori.md),
-popis funkcija: [docs/paritet.md](docs/paritet.md).
+**Stanje:** uključena su 3 trgovca provjerena stvarnim uvozom (Gavroprom, Top Alati, Veker); ostali su popisani
+s pravim stanjem u [docs/izvori.md](docs/izvori.md). Trgovci moraju objavljivati strojno čitljive cjenike od 17.11.2026.
+(NN 101/2026, NN 110/2026). Popis funkcija: [docs/paritet.md](docs/paritet.md).
 
 ## Razvoj
 ```

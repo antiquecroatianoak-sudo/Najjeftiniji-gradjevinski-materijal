@@ -62,9 +62,9 @@
       "format": "csv",
       "stranica": "https://www.gavroprom.hr/cjenik",
       "url": null,
-      "status": "neprovjereno",
-      "omogucen": false,
-      "napomena": "Popis CSV/XML cjenika po poslovnici; čitač uzima najnoviji CSV svake poslovnice i datum iz naziva datoteke. ChatGPT je 21.10.2026. dohvatio stranicu (200) i datoteku od 21.10.2026.; iz ovog okruženja host je blokiran (403). Ostaje neprovjereno dok se stvarni stupci ne provjere uvozom.",
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom cijele datoteke (ChatGPT, verzija 44655df): 3633 primljeno, 2129 prihvaćeno, 1504 nedostupno; datum 2026-10-21 iz naziva datoteke. Čitač stranice uzima najnoviji CSV po poslovnici.",
       "popis": true
     },
     {
@@ -75,9 +75,9 @@
       "stranica": "https://top-alati.hr/prices-list",
       "popis": true,
       "url": null,
-      "status": "neprovjereno",
-      "omogucen": false,
-      "napomena": "ChatGPT je 21.10.2026. preuzeo stvarni CSV poslovnice Varaždin (16834 retka, 2605 dostupno). Zaglavlje i redak prilagođeni u uvozu i testovima. Uključuje se nakon punog uvoza stvarne datoteke; iz ovog okruženja host blokiran."
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom cijele datoteke poslovnice Varaždin (ChatGPT, 44655df): 16834 primljeno, 2605 prihvaćeno, 14229 nedostupno. Ostale poslovnice imaju isti oblik; svaka je zaseban izvor istog trgovca."
     },
     {
       "id": "veker",
@@ -87,9 +87,9 @@
       "stranica": "https://www.veker.hr/cjenici/",
       "popis": false,
       "url": "https://www.veker.hr/wp-content/uploads/cjenici-webshop/cjenik.xml",
-      "status": "neprovjereno",
-      "omogucen": false,
-      "napomena": "Stalni XML web trgovine (ChatGPT: 200, 3,1 MB, 21.10.2026.). Datum iz <cjenik generirano> / <vremenska_oznaka>, nikad iz referentni_datum. Struktura provjerena na stvarnom retku; čeka puni uvoz."
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom cijelog XML-a (ChatGPT, 44655df): 3791 primljeno, 3712 prihvaćeno, 79 nedostupno. Datum iz <cjenik generirano>, ne iz referentni_datum."
     },
     {
       "id": "vijci",

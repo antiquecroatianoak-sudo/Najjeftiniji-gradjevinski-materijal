@@ -129,6 +129,17 @@ def iz_naziva(naziv: str) -> tuple[float, str] | None:
     return None
 
 
+# Alat i oprema: broj u nazivu (čekić 500 g, libela 60 cm, ključ 10 mm) opisuje alat, ne količinu pakiranja.
+RE_ALAT = re.compile(r"\b(cekic\w*|macol\w*|klijest\w*|kljuc\w*|odvijac\w*|busilic\w*|brusilic\w*|pila|pile|pilu|"
+                     r"tester\w*|svrdl\w*|nastav\w*|bit|bitov\w*|lopat\w*|kolica|ljestv\w*|libel\w*|metar|"
+                     r"skarp\w*|dlijet\w*|turpij\w*|gleteric\w*|zlic\w*|mistrij\w*|valjak|kist\w*|noz|nozevi|"
+                     r"rezac|skare|mjesalic\w*|aparat\w*|alat\w*|set|garnitur\w*)\b")
+
+
+def je_alat(naziv: str) -> bool:
+    return bool(RE_ALAT.search(normaliziraj(naziv)))
+
+
 def mjera(kolicina: str, jedinica: str, cijena: float | None, jedinicna: float | None, naziv: str):
     """
     (iznos, osnovna jedinica) ili None. Redoslijed: neto količina + jedinica mjere iz cjenika,
@@ -149,6 +160,8 @@ def mjera(kolicina: str, jedinica: str, cijena: float | None, jedinicna: float |
         iznos = round(cijena * faktor / jedinicna, 6)
         if 0 < iznos <= NAJVISE[osnovna] and not (osnovna == "kom" and abs(iznos - 1) < 1e-9):
             return iznos, osnovna
+    if je_alat(naziv):
+        return (1.0, "kom") if jedinica in ("kom", "komad", "kos") else None
     if r := iz_naziva(naziv):
         return r
     if jedinica in JEDINICE:
@@ -162,7 +175,10 @@ SPEC = [
     (re.compile(r"\b(eps)\s*-?\s*(\d{2,3}|f|t)\b", re.I), lambda m: f"EPS {m.group(2).upper()}"),
     (re.compile(r"\bxps\b", re.I), lambda m: "XPS"),
     (re.compile(r"\bgrafit\w*", re.I), lambda m: "grafitni"),
-    (re.compile(r"\bcem\s*(i{1,3}|iv|v)(?:\s*/\s*([ab]))?\b", re.I), lambda m: "CEM " + m.group(1).upper() + (f"/{m.group(2).upper()}" if m.group(2) else "")),
+    # Puna oznaka vrste cementa: CEM II/B-M (LL-V) nije isto što i CEM II/B-S.
+    (re.compile(r"\bcem\s*(i{1,3}|iv|v)(?:\s*/\s*([abc]))?(?:\s*-\s*([a-z]{1,2}))?(?:\s*\(\s*([a-z]{1,2}(?:\s*-\s*[a-z]{1,2})*)\s*\))?(?![a-z])", re.I),
+     lambda m: "CEM " + m.group(1).upper() + (f"/{m.group(2).upper()}" if m.group(2) else "")
+     + (f"-{m.group(3).upper()}" if m.group(3) else "") + (f" ({re.sub(r'\s+', '', m.group(4)).upper()})" if m.group(4) else "")),
     # Razred čvrstoće cementa: 32,5 R i 42,5 N nisu isti proizvod.
     (re.compile(r"(?<![\d.,])(32|42|52)[.,]5\s*([rnl])?(?![a-z0-9])", re.I),
      lambda m: f"{m.group(1)},5" + (f" {m.group(2).upper()}" if m.group(2) else "")),
@@ -183,6 +199,8 @@ def specifikacija(naziv: str, jedinica: str) -> str:
     for regex, oblik in SPEC:
         if m := regex.search(naziv or ""):
             oznake.append(oblik(m))
+    if je_alat(naziv) and (m := RE_JEDNO.search(RE_DIMENZIJE.sub(" ", naziv or ""))):
+        oznake.append(f"{m.group(1)} {m.group(2).lower()}")
     if m := RE_FRAKCIJA.search(naziv or ""):
         oznake.append(f"frakcija {m.group(1)}-{m.group(2)} mm".replace(".", ","))
     if jedinica in ("m", "m2", "m3", "kom"):

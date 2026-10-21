@@ -20,7 +20,7 @@ nepromijenjen iz produkcije, uključujući pregledane crvene rubove žutih ploha
 | Cijela košarica u jednoj trgovini | da; promjena trgovine čuva traženu količinu, cijela pakiranja | `tests/kosarica.cjs` |
 | Označavanje nepotpunih košarica i stavki bez cijene | da | `tests/kosarica.cjs` |
 | Stanje podataka, datum, „Pokušaj ponovno”, rad bez interneta | da (service worker `gradjevina-v1`) | Playwright (prazni podaci) |
-| Dnevni automatski uvoz i objava | radni tok postoji; **ne radi dok nijedan izvor nije provjeren** — tada preskače objavu | `.github/workflows/dnevno-azuriranje.yml` (nije pokrenut) |
+| Dnevni automatski uvoz i objava | radni tok postoji; uvozi samo provjerene izvore i preskače objavu bez podataka | `.github/workflows/dnevno-azuriranje.yml` (nije pokrenut) |
 
 ## Novo za građevinski materijal
 - Izgovorena količina: „20 m2 laminata”, „2,5 kubika betona”, „2 tone pijeska” → tražena količina; računaju se cijela pakiranja za barem tu količinu u svakoj trgovini.
@@ -28,7 +28,7 @@ nepromijenjen iz produkcije, uključujući pregledane crvene rubove žutih ploha
 - Oglasi: stanje, lokacija, datum provjere i poveznica na izvor; nepotpuni oglasi su „Nije uspoređeno: razlog”.
 
 ## Nije provjereno / ograničenja
-- Nema stvarnih podataka: nijedan izvor nije potvrđen (vidi `docs/izvori.md`), pa ni automatsko ažuriranje nije testirano na stvarnim cjenicima.
+- Stvarni podaci: 3 trgovca provjerena su stvarnim uvozom cijelih datoteka (vidi `docs/izvori.md`); dnevni rad automatizacije na GitHubu još nije pokrenut.
 - Prepoznavanje specifikacija i količina testirano je na sintetičkim nazivima; stvarni cjenici će tražiti dorade pravila.
 - Cijena je najniža u trgovini (svim poslovnicama); lokacija poslovnice i dostava nisu uključeni u usporedbu.
 - Glasovni unos ostaje „jedan artikl po pritisku” kao u produkciji (kontinuirano nabrajanje je vraćeno u izvornoj aplikaciji 851a3d2).
