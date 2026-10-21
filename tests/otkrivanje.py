@@ -155,6 +155,27 @@ assert not po["isti.hr"]["prihvacen"] and po["isti.hr"]["razlog"] == "isti trgov
 pokvaren = o.provjeri({"domena": "p.hr", "tip": "stalni", "url": "https://p.hr/x.xml", "format": "xml"},
                       lambda url: b"<html><body>Prijava</body>", sada)
 assert not pokvaren["prihvacen"] and pokvaren.get("uzorak", "").startswith("<html>"), pokvaren
+
+# Soft 404: uobičajena putanja vraća naslovnu (HTML) → nije kandidat. Cjenik povezan tekstom poveznice i na poddomeni se nalazi.
+NASLOVNA = b'<!DOCTYPE html><html><head><title>G</title></head><body><a href="https://dl.g.hr/export/artikli.xml">Objava cjenika</a></body></html>'
+G = {"https://g.hr/": NASLOVNA, "https://g.hr/cjenik.xml": NASLOVNA, "https://g.hr/sidrena-cijena.xml": NASLOVNA,
+     "https://dl.g.hr/export/artikli.xml": xml("2026-10-21T05:00:00+00:00")}
+def dohvati_g(url):
+    if url not in G:
+        raise OSError("HTTP Error 404: Not Found")
+    return G[url]
+kand = o.otkrij("https://g.hr/", dohvati_g)
+assert [k["url"] for k in kand] == ["https://dl.g.hr/export/artikli.xml"], kand
+assert o.provjeri(kand[0], dohvati_g, sada)["prihvacen"]
+html_kandidat = o.provjeri({"domena": "g.hr", "tip": "stalni", "url": "https://g.hr/cjenik.xml", "format": "xml"}, dohvati_g, sada)
+assert html_kandidat["razlog"] == "na adresi je HTML stranica, ne CSV/XML cjenik", html_kandidat
+# Imenik s unutarnjom stranicom po trgovcu.
+IMENIK2 = {"https://im2.hr/": b'<a href="/trgovac/novi">Novi</a><a href="/stil.css">css</a>',
+           "https://im2.hr/trgovac/novi": b'<a href="https://novi2.hr/">web</a>'}
+pregled = {}
+nove2 = o.domene_iz_imenika("https://im2.hr/", lambda url: IMENIK2[url], set(), pregled)
+assert [n["domena"] for n in nove2] == ["novi2.hr"] and pregled["unutarnjih_stranica"] == 1, (nove2, pregled)
 print("DISCOVERY PASS: link + known-path discovery, validation, duplicate supplier, expired, too small, 403, robots.txt, "
-      "directory discovery of new domains, construction relevance, same-supplier dedup, parse diagnostics, "
+      "directory discovery of new domains, construction relevance, same-supplier dedup, parse diagnostics, soft-404 HTML, link-text and subdomain files, "
+      "directory sub-pages, "
       "inclusion, rerun without duplicates, failed source from last valid list, stale cache excluded, atomic publish")

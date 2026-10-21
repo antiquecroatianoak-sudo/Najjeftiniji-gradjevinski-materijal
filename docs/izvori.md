@@ -64,7 +64,7 @@ Stanje je utvrđeno samo web pretragom. Zato nijedan URL cjenika nije potvrđen.
 | Gradnja invest | trgovina | neprovjereno | CSV u podnožju kataloga; datoteka još nije viđena. |
 | Telack | trgovina | **uključeno** | Stalni `cjenik-webshop.xml`: 470 primljeno, 470 prihvaćeno; datum iz `datum` (DD.MM.GGGG). |
 | Mirakul inovativna grijanja | trgovina | neprovjereno | XML u podnožju; oprema za grijanje. |
-| EraCommerce | trgovina | neprovjereno | Službena domena i identitet nisu potvrđeni (pretraga 21.10.2026. nije našla vezu s građevinskim materijalom); URL se ne nagađa. |
+| EraCommerce | trgovina | identitet potvrđen | ERA-COMMERCE d.o.o., Makarska, OIB 28609792467 (Fina info.BIZ, CompanyWall); domena era-commerce.hr, građevinski materijal, alati i oprema za dom. Dodana u `domene.json`; cjenik se otkriva i provjerava automatski, URL se ne nagađa. |
 | Njuškalo | oglasnik | blokirano | Službeni API nije pronađen; automatsko prikupljanje bez dopuštenja se ne radi. |
 | Index Oglasi | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
 | Plavi oglasnik | oglasnik | neprovjereno | Službeni API/izvoz nije pronađen; uvjeti nisu provjereni. |
@@ -86,8 +86,15 @@ Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
    jedinice. Dokaz (URL, datum, broj primljenih/prihvaćenih/nedostupnih, s jedinicom, vrijeme provjere) ili razlog
    odbijanja zapisuje se u `site/data/otkriveni.json` (objavljuje se uz aplikaciju).
 4. **Uključivanje**: prihvaćeni kandidati ulaze u isti dan u uvoz (`uvoz.py --otkriveni`).
-5. **Ograničenje**: bez API ključa tražilice nove *domene* ne otkrivaju se same; dodaje ih čovjek u `domene.json`.
-   Plaćena usluga nije uvedena.
+5. **Nove domene bez ručnog upisa**: javni imenici/agregatori cjenika iz `domene.json` → `"imenici"` (sada
+   sidrocjenici.com) čitaju se svaki dan; svaka vanjska `.hr` domena koja nije poznata, nije platforma (društvene mreže,
+   tražilice, alati) i nije sam imenik postaje novi kandidat (najviše 150 po pokretanju). Uz istu provjeru kao gore mora
+   proći i **provjeru asortimana**: barem 10 % naziva s građevinskim pojmom (cement, ljepilo, cijev, vijak, alat…), inače
+   „asortiman nije građevinski“. **Identitet/duplikat**: domena se svodi na trgovca (bez `www.`), a dvije domene s istim
+   naslovom stranice i istim brojem ponuda prihvaćaju se kao jedan trgovac. Neobradiva datoteka bilježi se s kratkim
+   uzorkom početka (dijagnoza).
+6. **Ograničenje**: domene koje nisu ni u jednom javnom imeniku ni u `domene.json` ne mogu se pronaći bez tražilice;
+   za to bi trebao API ključ tražilice (npr. Bing/Google Programmable Search), koji nije uveden. Plaćena usluga nije uvedena.
 
 ## Dnevni rad i pouzdanost
 - Dohvat: timeout 60 s, do 3 pokušaja uz rastuće čekanje (403/404 bez ponavljanja); greška jednog izvora ne ruši ostale.
@@ -95,8 +102,11 @@ Ovo nije potpun popis hrvatskih trgovaca ni oglasnika.
   cjenik s **izvornim datumom** i oznakom `iz_predmemorije`; stariji od 3 dana se ne uvozi.
 - Novi `proizvodi.json` zamjenjuje stari tek nakon provjere (atomska zamjena); bez valjanih cjenika objava se preskače.
 - Izvještaj u sažetku pokretanja: broj trgovaca, poslovnica, ponuda i izvora iz predmemorije.
-- Radni tok je napisan; **raspored radi tek nakon spajanja na `main` i uključivanja GitHub Pagesa**, a nijedan
-  produkcijski run još nije pokrenut.
+- **Napisani raspored**: `cron: "37 7 * * *"` (UTC, tj. 9:37 po hrvatskom ljetnom / 8:37 zimskom vremenu) u `.github/workflows/dnevno-azuriranje.yml`, posao `azuriraj-i-objavi`.
+- **Aktivni produkcijski raspored: NE** — GitHub pokreće `schedule` samo sa zadane grane (`main`); kod je na grani PR #1.
+- **Uspješan produkcijski run: NIJEDAN.** Postoje samo provjere na grani (posao `provjera-izvora`, bez objave).
+- Za aktivaciju (tek nakon neovisne provjere): Settings → Pages → Source: **GitHub Actions**; spojiti PR #1 na `main`;
+  ručno pokrenuti radni tok (Actions → Dnevno ažuriranje cijena → Run workflow) i provjeriti sažetak i objavljenu stranicu.
 
 ## Uključivanje izvora (nakon 17.11.2026. ili uz dopuštenje oglasnika)
 1. Otvoriti stranicu „Objava cjenika” trgovca, preuzeti CSV/XML web trgovine ili poslovnice i provjeriti stupce.

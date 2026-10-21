@@ -35,6 +35,8 @@ POZNATE_PUTANJE = ["/cjenik/", "/cjenik", "/cjenici/", "/sidrene-cijene/", "/sid
                    "/cjenik.xml"]
 RE_POVEZNICA = re.compile(r"""href\s*=\s*(?:"([^"]+)"|'([^']+)'|([^"'\s>]+))""", re.I)
 RE_STRANICA_CJENIKA = re.compile(r"cjeni|sidren|prices?-list|price-list", re.I)
+RE_TEKST_CJENIKA = re.compile(r"cjeni|sidren|objava cijena|popis cijena|price list", re.I)
+RE_NIJE_CJENIK = re.compile(r"sitemap|feed|rss|wp-json|oembed", re.I)
 # Kandidat mora imati barem toliko valjanih ponuda da bi se smatrao pravim cjenikom.
 NAJMANJE_PONUDA = 20
 # Novootkriveni trgovac mora prodavati građevinski materijal/opremu: barem ovaj udio naziva s građevinskim pojmom.
@@ -48,6 +50,7 @@ NIJE_TRGOVAC = re.compile(r"(facebook|instagram|twitter|x\.com|youtube|linkedin|
                           r"github|narodne-novine|gov\.hr|zakon\.hr|tiktok|pinterest|whatsapp|viber)", re.I)
 # Najviše novih domena iz imenika po pokretanju (ostale dolaze sljedećih dana).
 NAJVISE_NOVIH = 150
+NAJVISE_STRANICA_IMENIKA = 60
 
 
 def domena(url: str) -> str:
@@ -65,6 +68,27 @@ def poveznice(html: str, osnova: str) -> list[str]:
     return rezultat
 
 
+def je_html(sadrzaj: bytes) -> bool:
+    """Stranica umjesto cjenika (npr. naslovna vraćena za nepostojeću putanju, "soft 404")."""
+    pocetak = sadrzaj[:2048].lstrip().lower()
+    return pocetak.startswith((b"<!doctype html", b"<html", b"<!--")) and b"<html" in pocetak
+
+
+def poveznice_cjenika(html: str, osnova: str, dom: str) -> list[str]:
+    """Poveznice na istoj domeni ili poddomeni koje vode na cjenik po putanji ili po tekstu poveznice."""
+    rezultat = []
+    for m in re.finditer(r"<a\b([^>]*)>(.*?)</a>", html, re.I | re.S):
+        veze = poveznice(m.group(1), osnova)
+        if not veze:
+            continue
+        url, tekst = veze[0], re.sub(r"<[^>]+>", " ", m.group(2))
+        d, put = domena(url), urllib.parse.urlsplit(url).path
+        if (d == dom or d.endswith("." + dom)) and (RE_STRANICA_CJENIKA.search(put) or RE_TEKST_CJENIKA.search(tekst)
+                                                   or (re.search(r"\.(csv|xml)$", put, re.I) and not RE_NIJE_CJENIK.search(put))):
+            rezultat.append(url)
+    return rezultat
+
+
 def otkrij(pocetna: str, dohvati, robots=None) -> list[dict]:
     """
     Cjenici na službenoj domeni: stranice s popisom datoteka ("popis") i stalne datoteke ("stalni").
@@ -78,9 +102,8 @@ def otkrij(pocetna: str, dohvati, robots=None) -> list[dict]:
         if not smije(korijen + "/"):
             raise PermissionError("robots.txt")
         naslovna = uvoz.dekodiraj(dohvati(korijen + "/"))
-        for url in poveznice(naslovna, korijen + "/"):
-            if domena(url) == dom and RE_STRANICA_CJENIKA.search(urllib.parse.urlsplit(url).path):
-                (datoteke if re.search(r"\.(csv|xml)$", urllib.parse.urlsplit(url).path, re.I) else stranice).append(url)
+        for url in poveznice_cjenika(naslovna, korijen + "/", dom):
+            (datoteke if re.search(r"\.(csv|xml)$", urllib.parse.urlsplit(url).path, re.I) else stranice).append(url)
     except Exception:  # noqa: BLE001 - naslovna nedostupna: probaj uobičajene putanje
         pass
     for put in POZNATE_PUTANJE:
@@ -103,14 +126,16 @@ def otkrij(pocetna: str, dohvati, robots=None) -> list[dict]:
                     kandidati.append({"domena": dom, "tip": "popis", "stranica": url, "format": oblik,
                                       "primjer": datirani[0]["url"], "poslovnica": len(datirani)})
         for veza in poveznice(html, url):
-            if domena(veza) == dom and re.search(r"\.(csv|xml)$", urllib.parse.urlsplit(veza).path, re.I):
+            d = domena(veza)
+            if ((d == dom or d.endswith("." + dom)) and re.search(r"\.(csv|xml)$", urllib.parse.urlsplit(veza).path, re.I)
+                    and not RE_NIJE_CJENIK.search(urllib.parse.urlsplit(veza).path)):
                 datoteke.append(veza)
     # Uobičajena putanja bez poveznice postaje kandidat samo ako je stvarno dostupna.
     for url in pretpostavljene:
         if url not in datoteke and smije(url):
             try:
-                dohvati(url)
-                datoteke.append(url)
+                if not je_html(dohvati(url)):
+                    datoteke.append(url)
             except Exception:  # noqa: BLE001
                 pass
     for url in dict.fromkeys(datoteke):
@@ -143,14 +168,29 @@ def naslov(html: str) -> str:
     return re.sub(r"\s+", " ", m.group(1)).strip()[:120] if m else ""
 
 
-def domene_iz_imenika(url: str, dohvati, poznate: set) -> list[dict]:
+def domene_iz_imenika(url: str, dohvati, poznate: set, pregled: dict | None = None) -> list[dict]:
     """
     Nove domene trgovaca iz javnog imenika/agregatora cjenika: vanjske .hr poveznice koje nisu poznate,
     nisu platforme i nisu sam imenik. Provjera da su trgovci građevinskog materijala slijedi u provjeri().
     """
     vlastita = domena(url)
     nove, vidjeno = [], set()
-    for veza in poveznice(uvoz.dekodiraj(dohvati(url)), url):
+    html = uvoz.dekodiraj(dohvati(url))
+    sve = poveznice(html, url)
+    if pregled is not None:  # dijagnoza: koliko poveznica i koje vanjske domene imenik ima
+        pregled.update({"bajtova": len(html), "poveznica": len(sve),
+                        "vanjske": sorted({domena(v) for v in sve if domena(v) != vlastita})[:40]})
+    # Imenik često ima zasebnu stranicu po trgovcu: pregledaju se i unutarnje stranice (jedna razina, ograničeno).
+    unutarnje = [v for v in dict.fromkeys(sve) if domena(v) == vlastita and v.rstrip("/") != url.rstrip("/")
+                 and not re.search(r"\.(css|js|png|jpe?g|svg|webp|ico|pdf|woff2?)(\?|$)", v, re.I)][:NAJVISE_STRANICA_IMENIKA]
+    for v in unutarnje:
+        try:
+            sve += poveznice(uvoz.dekodiraj(dohvati(v)), v)
+        except Exception:  # noqa: BLE001
+            continue
+    if pregled is not None:
+        pregled["unutarnjih_stranica"] = len(unutarnje)
+    for veza in sve:
         d = domena(veza)
         if (not d.endswith(".hr") or d == vlastita or d.endswith("." + vlastita) or d in poznate or d in vidjeno
                 or NIJE_TRGOVAC.search(d)):
@@ -179,6 +219,11 @@ def provjeri(kandidat: dict, dohvati, sada: datetime | None = None, gradjevinski
     if not s.get("uspjeh"):
         greska = s.get("greska", "nepoznata greška")
         dodatak = {"uzorak": uzorak(dohvati, izvori[0]["url"])} if "well-formed" in greska or "element" in greska or "stupce" in greska else {}
+        try:
+            if je_html(dohvati(izvori[0]["url"])):
+                greska = "na adresi je HTML stranica, ne CSV/XML cjenik"
+        except Exception:  # noqa: BLE001
+            pass
         return {**kandidat, **dodatak, "prihvacen": False, "razlog": greska}
     s_jedinicom = sum(1 for p in (podaci or {}).get("proizvodi", []) if p[3])
     dokaz = {"datum": s.get("datum"), "primljeno": s.get("primljeno"), "prihvaceno": s.get("prihvaceno"),
@@ -278,8 +323,9 @@ def main():
     pregled_imenika = []
     for imenik in imenici:
         try:
-            nove = domene_iz_imenika(imenik["url"], dohvati, poznate)[:NAJVISE_NOVIH]
-            pregled_imenika.append({"url": imenik["url"], "novih_domena": len(nove)})
+            pregled = {}
+            nove = domene_iz_imenika(imenik["url"], dohvati, poznate, pregled)[:NAJVISE_NOVIH]
+            pregled_imenika.append({"url": imenik["url"], "novih_domena": len(nove), **pregled})
             poznate |= {n["domena"] for n in nove}
             trgovci += nove
         except Exception as e:  # noqa: BLE001
