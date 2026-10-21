@@ -65,8 +65,28 @@ kolica|Građevinska kolica|građevinska kolica;kolica;tačke
 ljestve|Ljestve|ljestve;ljestvice
 skela|Skele|skela
 lopata|Lopate|lopata
-zlica|Zidarske žlice i gleterice|zidarska žlica;mistrija;gleterica
-rukavice|Radne rukavice|radne rukavice;rukavice`;
+zlica|Zidarske žlice i gleterice|zidarska žlica;mistrija;gleterica;gleter
+rukavice|Radne rukavice|radne rukavice;zaštitne rukavice;rukavice
+svrdlo|Svrdla|svrdlo;burgija
+kljuc|Ključevi|imbus ključ;nasadni ključ;viljuškasti ključ;okasti ključ;kombinirani ključ;ključ
+klijesta|Kliješta|kliješta
+cekic|Čekići|čekić;macola
+odvijac|Odvijači|odvijač
+kist|Kistovi|kist
+valjak|Valjci za boju|valjak za boju;valjak
+brusni|Brusni materijal|vodobrusni papir;brusni papir;brusna spužva;brusni disk;brusni list
+rezna-ploca|Rezne i dijamantne ploče|rezna ploča;dijamantna ploča;dijamantni disk;rezni disk
+list-pile|Listovi pila|list kružne pile;list pile;list za ubodnu pilu
+libela|Libele|libela;vaservaga
+radna-odjeca|Radna odjeća|radne hlače;radna jakna;radni prsluk;radni kombinezon;radna majica;hlače;jakna;prsluk;kombinezon;majica
+radna-obuca|Radna obuća|radne cipele;zaštitne cipele;cipele;cipela;čizme
+radijator|Radijatori|radijator
+matica|Matice i podloške|matica;podloška
+obujmica|Obujmice|obujmica
+traka|Ljepljive trake|ljepljiva traka;izolir traka;traka
+pistolj|Pištolji|pištolj za silikon;pištolj
+cetka|Četke|četka
+zica|Žica|žica`;
 
   const vrste = zapis.split("\n").map((s) => {
     const [id, naziv, aliases] = s.split("|");
@@ -102,6 +122,7 @@ rukavice|Radne rukavice|radne rukavice;rukavice`;
     return hits;
   }
 
+  const PRIBOR = /^(set|setovi|komplet|kant|posud|poklop|cep|nosac|drzac|nastav|adapter|umet|kutij|torb|stalak|kapic|spojnic|rezerv|zamjensk|futrol|kofer|kovceg|organizator)/;
   const opisne = new Set(["bio", "eko", "organsko", "organic", "premium", "mini", "maxi", "xxl", "xl", "domaci", "domaca", "domace", "svjezi", "svjeza", "svjeze", "trajno", "trajno", "snizeno", "pak", "pakirano", "pakirani", "svj", "smrznuti", "smrznuta", "smrznuto", "zamrznuti", "zamrznuta", "zamrznuto", "bijeli", "crni", "polubijeli", "razani", "integralni", "rezani", "tvrdi", "meki", "mladi", "trajni", "prirodni", "vocni", "100", "n", "fis"]);
   function analiziraj(tekst, marka = 0, upit = false, pripremljeneRijeci = null) {
     const r = pripremljeneRijeci || normaliziraj(tekst).split(" ").filter(Boolean);
@@ -115,8 +136,11 @@ rukavice|Radne rukavice|radne rukavice;rukavice`;
     let razlog = !hits.length ? "nijedan poznati pojam" : !glavni ? "pojam samo iza prijedloga" : "";
     // Nepoznate riječi prije glavne imenice mogu skrivati stvarnu vrstu.
     // Ne nagađaj da je sastojak (npr. mlijeko u kavi) glavni proizvod.
-    if (glavni && !upit && r.slice(Math.max(0, Number(marka) || 0), glavni.pos)
-      .some((w) => !opisne.has(w) && !/^\d/.test(w))) { glavni = null; razlog = "nepoznate riječi prije pojma"; }
+    // Građevinski nazivi često imaju pridjev ili marku ispred imenice („Podžbukna cijev“, „Električarski gips“).
+    // Ne razvrstava se samo kad riječ ispred označava pribor ili spremnik („Set …“, „Poklopac …“, „Nosač …“).
+    if (glavni && !upit && r.slice(Math.max(0, Number(marka) || 0), glavni.pos).some((w) => PRIBOR.test(w))) {
+      glavni = null; razlog = "pribor ili spremnik ispred pojma";
+    }
     if (glavni && overrides.has(glavni.id)) {
       const special = hits.find((h) => overrides.get(glavni.id).has(h.id));
       if (special) glavni = special;

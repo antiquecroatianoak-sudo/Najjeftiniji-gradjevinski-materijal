@@ -17,20 +17,25 @@ import uvoz  # noqa: E402
 
 def analiziraj(izvor_id: str, url: str, fmt: str, najvise_grupa: int = 8) -> dict:
     tekst = uvoz.dekodiraj(uvoz.preuzmi_url(url, pokusaja=2))
-    if fmt != "csv":
-        return {"id": izvor_id, "napomena": "samo CSV za sirovi uzorak"}
-    dijalekt = csv.Sniffer().sniff(tekst[:4096], delimiters=";,\t|")
-    redovi = list(csv.reader(io.StringIO(tekst), dijalekt))
-    zaglavlje, sirovi = redovi[0], redovi[1:]
-    kljucevi = [uvoz._kljuc_stupca(z, None) for z in zaglavlje]
+    if fmt == "csv":
+        dijalekt = csv.Sniffer().sniff(tekst[:4096], delimiters=";,\t|")
+        redovi = list(csv.reader(io.StringIO(tekst), dijalekt))
+        zaglavlje, sirovi = redovi[0], redovi[1:]
+        kljucevi = [uvoz._kljuc_stupca(z, None) for z in zaglavlje]
+        zapisi = [({k: v.strip() for k, v in zip(kljucevi, red) if k}, red) for red in sirovi]
+    else:  # XML: zapisi kakve uvoz čita, ispisani kao stupac=vrijednost
+        stavke = list(uvoz.citaj_xml(tekst))
+        zaglavlje = sorted({k for z in stavke for k in z})
+        zapisi = [(z, [z.get(k, "") for k in zaglavlje]) for z in stavke]
     grupe = defaultdict(list)
-    for red in sirovi:
-        z = {k: v.strip() for k, v in zip(kljucevi, red) if k}
+    for z, red in zapisi:
         if not z.get("naziv") or uvoz.normaliziraj(z.get("dostupnost", "")) in ("nedostupan", "nedostupno", "ne", "0"):
             continue
         m = uvoz.mjera(z.get("kolicina", ""), z.get("jedinica", ""), uvoz.u_broj(z.get("cijena")), uvoz.u_broj(z.get("jedinicna")), z["naziv"])
         spec = uvoz.specifikacija(z["naziv"], m[1]) if m else ""
-        kljuc = (z.get("barkod") or f"{z.get('sifra') or uvoz.normaliziraj(z['naziv'])}", m, spec)
+        # Isti ključ kao uvoz: valjan barkod + šifra (isti barkod pod drugom šifrom se ne spaja), inače šifra ili naziv.
+        barkod, sifra = uvoz.valjan_barkod(z.get("barkod")), (z.get("sifra") or "").strip()
+        kljuc = (barkod, sifra if barkod and sifra else "" if barkod else (sifra or uvoz.normaliziraj(z["naziv"])), m, spec)
         grupe[kljuc].append(red)
     spojene = {k: v for k, v in grupe.items() if len(v) > 1}
     razlike = Counter()

@@ -156,7 +156,9 @@ function trazi(korijeni, odgovara) {
     const razina = mjesto <= marka ? 0 : PRIJEDLOZI.has(r[mjesto - 1]) ? 2 : 1;
     razine[razina].push(i);
   }
-  return razine.find((r) => r.length) || [];
+  // Sve razine redom (početak naziva, sredina, iza prijedloga): nijedan pogodak ne nestaje zato što drugi
+  // proizvodi počinju traženom riječi (revizija run 31: „R CW profil“ je nestajao uz „Profil …“).
+  return razine.flat();
 }
 
 // ---------- Ponude ----------

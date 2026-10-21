@@ -456,7 +456,8 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
         vrste.append(izvor.get("vrsta", "trgovina"))
         datumi_lanaca.append(zapis_stanja.get("datum", ""))
         primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = nedostupno = negradjevinsko = 0
-        spojeno_u_izvoru = 0
+        spojeno_u_izvoru = barkod_druga_sifra = 0
+        sifre_barkoda: dict[str, str] = {}
         for s in stavke:
             primljeno += 1
             meta = None
@@ -530,8 +531,15 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                 # osim kad specifikacija (dimenzije, promjer, razred) određuje što je jedan komad.
                 if m == (1.0, "kom") and not u_broj(s.get("kolicina")) and not spec:
                     m = None
-                barkod = (s.get("barkod") or "").strip()
-                kljuc = barkod or f"{izvor['id']}:{s.get('sifra') or normaliziraj(naziv)}"
+                barkod = valjan_barkod(s.get("barkod"))
+                sifra = (s.get("sifra") or "").strip()
+                kljuc = barkod or f"{izvor['id']}:{sifra or normaliziraj(naziv)}"
+                # Isti barkod pod drugom šifrom u istom cjeniku: zasebni artikli (npr. nijanse, veličine), ne spajaju se.
+                if barkod and sifra:
+                    prva = sifre_barkoda.setdefault(barkod, sifra)
+                    if prva != sifra:
+                        kljuc = f"{barkod}|{izvor['id']}:{sifra}"
+                        barkod_druga_sifra += 1
             prihvaceno += 1
             zapis = svi.get(kljuc)
             # Isti barkod s drugom količinom, jedinicom ili specifikacijom nije ista ponuda za usporedbu.
@@ -556,6 +564,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
         stanje.append({**zapis_stanja, "uspjeh": True, "primljeno": primljeno, "prihvaceno": prihvaceno,
                        "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata,
                        "neusporedeno": neuspordeno, "nedostupno": nedostupno, "spojeno_u_izvoru": spojeno_u_izvoru,
+                       "barkod_druga_sifra": barkod_druga_sifra,
                        **({"negradjevinsko": negradjevinsko} if izvor.get("samo_gradjevinski") else {}), "lanac": idx})
 
     proizvodi = []
@@ -668,12 +677,18 @@ def brojke_uvoza(stanje: list[dict], podaci: dict | None) -> dict:
     return b
 
 
-def preuzmi_url(url: str, pokusaja: int = 3, cekanje: float = 2.0) -> bytes:
+def valjan_barkod(vrijednost) -> str:
+    """EAN/GTIN (8, 12, 13 ili 14 znamenki, ne same nule). „0“, „000…“ i kratke oznake nisu barkod i ne spajaju artikle."""
+    b = re.sub(r"\s+", "", str(vrijednost or ""))
+    return b if re.fullmatch(r"\d{8}|\d{12,14}", b) and b.strip("0") else ""
+
+
+def preuzmi_url(url: str, pokusaja: int = 3, cekanje: float = 2.0, timeout: float = 60) -> bytes:
     """Dohvat s ograničenim ponovnim pokušajima. 403/404 se ne ponavljaju: to je odbijen pristup, ne kvar."""
     zahtjev = urllib.request.Request(url, headers={"User-Agent": "najjeftiniji-gradjevinski-materijal/1 (javni cjenik)"})
     for pokusaj in range(pokusaja):
         try:
-            with urllib.request.urlopen(zahtjev, timeout=60) as r:
+            with urllib.request.urlopen(zahtjev, timeout=timeout) as r:
                 return r.read()
         except urllib.error.HTTPError as e:
             if e.code in (401, 403, 404, 410) or pokusaj == pokusaja - 1:

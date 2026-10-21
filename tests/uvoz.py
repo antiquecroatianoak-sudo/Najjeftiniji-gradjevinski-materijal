@@ -106,8 +106,8 @@ mjesalica = po_nazivu["Mješalica za beton"][0]
 assert mjesalica[3] == "" and mjesalica[7]["razlog"] == "specifikacija nije navedena", "incomplete ad is unranked with a reason"
 assert "Skela" not in po_nazivu, "price on request has no amount"
 # Isti barkod, različita jedinica u dva dućana: ne spaja se (inače bi B dobio pogrešnu cijenu po m²).
-CSV_A = "Naziv;Barkod;Neto količina;Jedinica mjere;MPC\nLaminat hrast 8 mm;3859999;2,5;m2;22,50\n"
-CSV_B = "Naziv;Barkod;Neto količina;Jedinica mjere;MPC\nLaminat hrast 8 mm;3859999;1;kom;4,00\n"
+CSV_A = "Naziv;Barkod;Neto količina;Jedinica mjere;MPC\nLaminat hrast 8 mm;3859999000001;2,5;m2;22,50\n"
+CSV_B = "Naziv;Barkod;Neto količina;Jedinica mjere;MPC\nLaminat hrast 8 mm;3859999000001;1;kom;4,00\n"
 p2, _ = u.obradi([{"id": "a", "naziv": "A", "format": "csv", "datum": "2026-10-20"}, {"id": "b", "naziv": "B", "format": "csv", "datum": "2026-10-20"}],
                  lambda i: {"a": CSV_A, "b": CSV_B}[i["id"]], sada)
 redovi = [p for p in p2["proizvodi"] if p[0] == "Laminat hrast 8 mm"]
@@ -247,8 +247,8 @@ assert len(p0["datumiLanaca"]) == 1 and len(p2["datumiLanaca"]) == len(p2["lanci
 assert u.obradi([], lambda i: b"", sada)[0] is None
 
 # Brojke: ulazni retci, prihvaćeni retci, spajanje istog proizvoda u istom cjeniku, ponude, jedinstveni proizvodi.
-CSV_D = ("Naziv;Barkod;Neto količina;Jedinica mjere;MPC\nLaminat hrast 8 mm;3859999;2,5;m2;22,50\n"
-         "Laminat hrast 8 mm;3859999;2,5;m2;21,90\nCement 25 kg;111;25;kg;6,00\n")
+CSV_D = ("Naziv;Barkod;Neto količina;Jedinica mjere;MPC\nLaminat hrast 8 mm;3859999000001;2,5;m2;22,50\n"
+         "Laminat hrast 8 mm;3859999000001;2,5;m2;21,90\nCement 25 kg;111;25;kg;6,00\n")
 pd_, std = u.obradi([{"id": "a", "naziv": "A", "format": "csv", "datum": "2026-10-20"},
                      {"id": "b", "naziv": "B", "format": "csv", "datum": "2026-10-20"}], lambda i: {"a": CSV_D, "b": CSV_A}[i["id"]], sada)
 bd = u.brojke_uvoza(std, pd_)
@@ -289,4 +289,21 @@ with tempfile.TemporaryDirectory() as tmp:
     r, uc, _ = u.s_predmemorijom(prazno, lambda i: (_ for _ in ()).throw(OSError("nema")), mapa)
     pc, sc = u.obradi(r, uc, sada)
     assert sc[0]["uspjeh"] and sc[0]["iz_predmemorije"] and sc[0]["id"] == "p:web", sc
-print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source, counts by stage, mixed store, cache after bad 200, empty listing")
+# Stvarni nalaz (Bačelić, run 31): 36 454 retka s barkodom „0“ spojena su u jedan. „0“ nije barkod; ista šifra spaja,
+# isti pravi barkod pod drugom šifrom u istom cjeniku ne spaja (nijanse/veličine).
+BAC = ('naziv;šifra;marka;mjerna_jedinica;jedinična_cijena;maloprodajna_cijena;poseban_oblik_prodaje;naziv_posebnog_oblika_prodaje;'
+       'sidrena_cijena;sidrena_cijena_od;barkod;dostupnost\n'
+       'LJESTVE ŽELJEZNE KUĆNE;1001722;;kom;;30.60;ne;;30.60;2026-09-10;0;dostupan\n'
+       'LJESTVE ŽELJEZNE KUĆNE;1001725;;kom;;49.00;ne;;49.00;2026-09-10;0;dostupan\n'
+       'JUMIX MARKPro unutrašnja boja 8 KG JU5 010E;5045962;;kom;;14.95;ne;;14.95;2026-09-10;0000000000000;dostupan\n'
+       'JUMIX MARKPro unutrašnja boja 8 KG JU5 010F;5045965;;kom;;13.11;ne;;13.11;2026-09-10;0000000000000;dostupan\n'
+       'Ljepilo A 25 kg;77;;kom;;9.00;ne;;9.00;2026-09-10;3850000000017;dostupan\n'
+       'Ljepilo A 25 kg;78;;kom;;9.50;ne;;9.50;2026-09-10;3850000000017;dostupan\n'
+       'Ljepilo A 25 kg;77;;kom;;9.20;ne;;9.20;2026-09-10;3850000000017;dostupan\n')
+pb, sb = u.obradi([{"id": "bac", "naziv": "Bačelić", "format": "csv", "datum": "2026-10-21"}], lambda i: BAC, sada)
+assert len(pb["proizvodi"]) == 6, [p[0] for p in pb["proizvodi"]]
+assert sb[0]["spojeno_u_izvoru"] == 1 and sb[0]["barkod_druga_sifra"] == 1, sb
+assert sorted(p[5][1] for p in pb["proizvodi"] if p[0].startswith("LJESTVE")) == [30.6, 49.0], "two ladders stay two offers"
+assert u.valjan_barkod("0") == "" and u.valjan_barkod("0000000000000") == "" and u.valjan_barkod("123") == ""
+assert u.valjan_barkod(" 3850000000017 ") == "3850000000017" and u.valjan_barkod("40123456") == "40123456"
+print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source, counts by stage, mixed store, cache after bad 200, empty listing, placeholder barcode 0, same barcode other code")

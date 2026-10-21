@@ -14,6 +14,12 @@ const proizvodi = [
   P("Imbus ključ 3 mm", 0, "", [7, 1.5, 8, 1.4]),                          // nerazvrstano
   P("ORSO ARBOR boja 1 l", 1, "l", [9, 12]),                               // nepoznata riječ prije pojma
   P("Boja za zidove bijela 15 l", 15, "l", [9, 30, 10, 28]),
+  P("Profil UD 28 3 m", 3, "m", [1, 2.5]),                                 // nerazvrstano, riječ na početku
+  P("R CW profil 50 4000 mm", 4, "m", [2, 4.1]),                           // nerazvrstano, riječ u sredini
+  P("Bi-metalna pila za rupe 19 mm", 0, "", [3, 9.9]),
+  P("Metalna pila 300 mm", 0, "", [4, 7.5]),
+  P("Set kistova 3 kom", 0, "", [5, 4.2]),                                 // pribor/set: nerazvrstano
+  P("Kist ravni 50 mm", 0, "", [6, 2.2]),
 ];
 const lanciKojiImaju = (i) => new Set(proizvodi[i][5].filter((_, k) => k % 2 === 0));
 const app = ucitaj({ datum: "2026-10-21", lanci, vrsteIzvora: lanci.map(() => "trgovina"), proizvodi });
@@ -21,7 +27,8 @@ const A = app.__api;
 const kombinacije = [[[], null], ...lanci.map((l) => [lanci.filter((x) => x !== l), null]), ...lanci.map((l) => [[l], null]),
   ...lanci.map((l) => [[], l]), [["T1", "T4"], null], [["T1", "T2", "T3", "T4"], "T12"]];
 // Očekivanje je zapisano ručno (ne iz klasifikatora): koje proizvode upit mora moći prikazati.
-const ocekivano = { "cement": [0, 1, 2], "boja": [6, 7], "kobaltno svrdlo": [3], "matica": [4], "imbus ključ": [5] };
+const ocekivano = { "cement": [0, 1, 2], "boja": [6, 7], "kobaltno svrdlo": [3], "matica": [4], "imbus ključ": [5],
+  "profil": [8, 9], "metalna pila": [10, 11], "kist": [12, 13] };
 for (const [upit, indeksi] of Object.entries(ocekivano)) {
   for (const [iskljuceni, jedna] of kombinacije) {
     app.__filtar(iskljuceni, jedna);
@@ -39,7 +46,8 @@ for (const [upit, indeksi] of Object.entries(ocekivano)) {
 }
 app.__filtar([], null);
 // Nerazvrstani artikli nisu najpovoljniji i nisu rangirani po jedinici, ali su dostupni.
-assert(A.ponudeZaGrupu("boja", A.dozvoljeniLanci()).find((p) => p.i === 6).vrstaNejasna);
+assert(!A.ponudeZaGrupu("boja", A.dozvoljeniLanci()).find((p) => p.i === 6).vrstaNejasna, "brand before the noun: still paint");
+assert(A.ponudeZaGrupu("kist", A.dozvoljeniLanci()).find((p) => p.i === 12).vrstaNejasna, "a set is not classified as a brush");
 assert(!A.imaJedinicnu(A.ponudeZaGrupu("cement", A.dozvoljeniLanci()).find((p) => p.i === 2)), "bucket is not ranked as cement");
 // Listanje: „Sljedeći“ obilazi sve ponude i vraća se na prvu.
 app.vm = require("vm");

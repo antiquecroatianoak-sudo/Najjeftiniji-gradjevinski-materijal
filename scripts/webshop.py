@@ -28,7 +28,10 @@ KORIJEN = Path(__file__).resolve().parent.parent
 POPIS = KORIJEN / "scripts" / "webshopovi.json"
 IZLAZ = KORIJEN / "site" / "data" / "webshop.json"
 PREDMEMORIJA = KORIJEN / ".predmemorija" / "webshop.json"
-NAJVISE_STRANICA = 60          # stranica proizvoda po trgovcu po pokretanju
+NAJVISE_STRANICA = 25          # stranica proizvoda po trgovcu po pokretanju
+BUDZET_TRGOVCA = 150           # sekundi po trgovcu; ostatak dolazi na red u sljedećem pokretanju (kružni red)
+TIMEOUT = 20                   # sekundi po zahtjevu
+UKUPNI_BUDZET = 1380           # sekundi za cijeli pilot (posao ima 30 min); preostali trgovci prvi su sljedeći put
 NAJMANJI_RAZMAK = 1.0          # sekundi između zahtjeva istom trgovcu (ili Crawl-delay ako je veći)
 SITEMAPI = ["/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml", "/product-sitemap.xml"]
 RE_PROIZVODNI_SITEMAP = re.compile(r"product|proizvod|artikl|shop|catalog", re.I)
@@ -50,7 +53,7 @@ def stranice_proizvoda(korijen: str, dohvati, rp) -> list[str]:
     vidjeni, stranice = set(), []
     for pocetni in korijeni:
         red = [pocetni]
-        while red and len(vidjeni) < 25:
+        while red and len(vidjeni) < 12:
             url = red.pop(0)
             if url in vidjeni or not rp.can_fetch(AGENT, url):
                 continue
@@ -147,7 +150,8 @@ def ponuda_iz_proizvoda(p: dict, url: str, dom: str, html: str, sada: datetime) 
     return {**zapis, **({"razlog": "; ".join(razlozi)} if razlozi else {})}
 
 
-def obradi_trgovca(t: dict, dohvati, stanje_reda: dict, sada: datetime, spavaj=time.sleep) -> tuple[dict, list[dict]]:
+def obradi_trgovca(t: dict, dohvati, stanje_reda: dict, sada: datetime, spavaj=time.sleep, sat=time.monotonic) -> tuple[dict, list[dict]]:
+    pocetak = sat()
     dom = t["domena"]
     korijen = f"https://{t.get('host') or dom}"
     pregled = {"domena": dom, "naziv": t.get("naziv", dom)}
@@ -169,9 +173,12 @@ def obradi_trgovca(t: dict, dohvati, stanje_reda: dict, sada: datetime, spavaj=t
         return {**pregled, "status": "kandidat", "razlog": "sitemap sa stranicama proizvoda nije pronađen"}, []
     pomak = stanje_reda.get(dom, 0) % len(sve)
     danas = (sve + sve)[pomak:pomak + min(NAJVISE_STRANICA, len(sve))]
-    stanje_reda[dom] = (pomak + len(danas)) % len(sve)
-    ponude, iskljuceno, bez_podataka, odbijeno = [], {}, 0, 0
+    stanje_reda[dom] = pomak  # pomiče se nakon pregleda za stvarno pregledani broj stranica
+    ponude, iskljuceno, bez_podataka, odbijeno, pregledano = [], {}, 0, 0, 0
     for url in danas:
+        if sat() - pocetak > BUDZET_TRGOVCA:
+            break  # ograničenje vremena po trgovcu; red se nastavlja sljedeći put od ove stranice
+        pregledano += 1
         if not rp.can_fetch(AGENT, url):
             odbijeno += 1
             continue
@@ -192,7 +199,8 @@ def obradi_trgovca(t: dict, dohvati, stanje_reda: dict, sada: datetime, spavaj=t
                 iskljuceno[z["iskljuceno"]] = iskljuceno.get(z["iskljuceno"], 0) + 1
             else:
                 ponude.append(z)
-    pregled.update({"pregledano_stranica": len(danas), "bez_strukturiranih_podataka": bez_podataka, "nedohvatljivo": odbijeno,
+    stanje_reda[dom] = (pomak + pregledano) % len(sve)
+    pregled.update({"pregledano_stranica": pregledano, "bez_strukturiranih_podataka": bez_podataka, "nedohvatljivo": odbijeno,
                     "ponuda": len(ponude), "rangirljivih": sum(1 for p in ponude if not p.get("razlog")), "iskljuceno": iskljuceno,
                     "primjeri": [{k: p.get(k) for k in ("naziv", "cijena", "pdv", "dostupnost", "razlog", "url")} for p in ponude[:3]]})
     pregled["status"] = "pilot" if ponude else "kandidat"
@@ -219,21 +227,40 @@ def main():
         spremljeno = json.loads(PREDMEMORIJA.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001
         spremljeno = {"red": {}, "ponude": {}}
-    dohvati = lambda url: uvoz.preuzmi_url(url, pokusaja=1)  # noqa: E731
+    dohvati = lambda url: uvoz.preuzmi_url(url, pokusaja=1, timeout=TIMEOUT)  # noqa: E731
     pregledi, nove = [], {}
-    for t in trgovci:
-        pregled, ponude = obradi_trgovca(t, dohvati, spremljeno["red"], sada)
+    nazivi = {t["domena"]: t.get("naziv", t["domena"]) for t in trgovci}
+    stare = spremljeno.get("ponude", {})
+    pocetak, prvi = time.monotonic(), spremljeno["red"].get("_prvi_trgovac", 0) % max(1, len(trgovci))
+    redoslijed = trgovci[prvi:] + trgovci[:prvi]
+    for n, t in enumerate(redoslijed):
+        if time.monotonic() - pocetak > UKUPNI_BUDZET:
+            spremljeno["red"]["_prvi_trgovac"] = (prvi + n) % len(trgovci)
+            for ostali in redoslijed[n:]:
+                pregledi.append({"domena": ostali["domena"], "status": "nije stigao na red", "razlog": "vrijeme pilota; prvi je sljedeći put"})
+                print("-- " + json.dumps(pregledi[-1], ensure_ascii=False), flush=True)
+            break
+        try:
+            pregled, ponude = obradi_trgovca(t, dohvati, spremljeno["red"], sada)
+        except Exception as e:  # noqa: BLE001 - jedan trgovac ne ruši pilot
+            pregled, ponude = {"domena": t["domena"], "status": "greška", "razlog": str(e)[:200]}, []
         pregledi.append(pregled)
         if ponude:
             nove[t["domena"]] = ponude
-        print(("OK " if ponude else "-- ") + json.dumps({k: v for k, v in pregled.items() if k != "primjeri"}, ensure_ascii=False))
+        print(("OK " if ponude else "-- ") + json.dumps({k: v for k, v in pregled.items() if k != "primjeri"}, ensure_ascii=False), flush=True)
         for p in pregled.get("primjeri", []):
-            print("     " + json.dumps(p, ensure_ascii=False)[:300])
-    spremljeno["ponude"] = spoji_s_predmemorijom(spremljeno.get("ponude", {}), nove, sada)
+            print("     " + json.dumps(p, ensure_ascii=False)[:300], flush=True)
+        # Spremanje nakon svakog trgovca: prekid (npr. vremensko ograničenje posla) ne gubi već provjerene ponude.
+        spremljeno["ponude"] = spoji_s_predmemorijom(stare, nove, sada)
+        PREDMEMORIJA.parent.mkdir(parents=True, exist_ok=True)
+        PREDMEMORIJA.write_text(json.dumps(spremljeno, ensure_ascii=False), encoding="utf-8")
+        IZLAZ.parent.mkdir(parents=True, exist_ok=True)
+        IZLAZ.write_text(json.dumps({"provjereno": sada.isoformat(timespec="minutes"), "trgovci": pregledi,
+                                     "ponude": {d: {"naziv": nazivi.get(d, d), "ponude": p} for d, p in spremljeno["ponude"].items() if p}},
+                                    ensure_ascii=False, indent=1), encoding="utf-8")
     PREDMEMORIJA.parent.mkdir(parents=True, exist_ok=True)
-    PREDMEMORIJA.write_text(json.dumps(spremljeno, ensure_ascii=False), encoding="utf-8")
-    nazivi = {t["domena"]: t.get("naziv", t["domena"]) for t in trgovci}
     IZLAZ.parent.mkdir(parents=True, exist_ok=True)
+    PREDMEMORIJA.write_text(json.dumps(spremljeno, ensure_ascii=False), encoding="utf-8")  # i pomak reda trgovaca
     IZLAZ.write_text(json.dumps({"provjereno": sada.isoformat(timespec="minutes"), "trgovci": pregledi,
                                  "ponude": {d: {"naziv": nazivi.get(d, d), "ponude": p} for d, p in spremljeno["ponude"].items() if p}},
                                 ensure_ascii=False, indent=1), encoding="utf-8")

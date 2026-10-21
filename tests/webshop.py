@@ -84,6 +84,11 @@ for _ in range(2):
 assert vidjeno == {f"{K}/p/{i}" for i in range(9)}, vidjeno
 w.NAJVISE_STRANICA = stari
 
+# Vremensko ograničenje po trgovcu: stane, a red se nastavlja od prve nepregledane stranice.
+vrijeme = iter(range(0, 10000, 40))
+red3 = {}
+pv, _ = w.obradi_trgovca({"domena": "shop.hr"}, dohvati, red3, sada, spavaj=lambda s: None, sat=lambda: next(vrijeme))
+assert 0 < pv["pregledano_stranica"] < 9 and red3["shop.hr"] == pv["pregledano_stranica"], (pv, red3)
 # Predmemorija: novija provjera zamjenjuje stariju, starija od dopuštenog ispada.
 stara = {"shop.hr": [{**ponude[0], "provjereno": (sada - timedelta(days=5)).isoformat(timespec="minutes"), "url": f"{K}/staro"},
                      {**ponude[0], "provjereno": (sada - timedelta(days=1)).isoformat(timespec="minutes")}]}
@@ -108,5 +113,5 @@ staro = [{**ponude[0], "provjereno": (sada - timedelta(days=4)).isoformat(timesp
 pz, sz = u.obradi([izvori[1]], lambda i: json.dumps(staro), sada)
 assert pz is None and sz[0]["greska"] == "nema dostupnih ponuda" and sz[0]["zastarjelo"] == 1, sz
 print("WEBSHOP PASS: sitemap index → product pages, robots.txt, other domain, price on request, non-EUR, out of stock, "
-      "price range, VAT stated/text/missing/excluded, @graph, JS challenge blocked, rotation, cache expiry, "
+      "price range, VAT stated/text/missing/excluded, @graph, JS challenge blocked, rotation, per-shop time budget, cache expiry, "
       "import ranked vs unranked, no publication date, GTIN merge with price list, stale web offers excluded")

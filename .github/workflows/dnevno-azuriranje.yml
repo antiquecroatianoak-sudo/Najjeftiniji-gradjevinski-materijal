@@ -130,7 +130,7 @@ jobs:
       - name: Pilot cijena sa stranica proizvoda (schema.org, samo radna grana)
         continue-on-error: true
         timeout-minutes: 30
-        run: python scripts/webshop.py
+        run: python -u scripts/webshop.py
       - name: Uvezi provjerene izvore (bez objave)
         timeout-minutes: 20
         run: |
