@@ -391,8 +391,9 @@ function razdvojiGlasovniPopis(tekst) {
   });
 }
 
-// Jedan pritisak = jedan artikl, kao prije kontinuiranog nabrajanja.
-// Rezultat se odmah dodaje i sprema. Završetak nikad ne pokreće novi mikrofon.
+// Jedan pritisak započinje nabrajanje više stavki; "Gotovo" ga završava. Svaki prepoznati dio
+// odmah se dodaje i sprema. Ponovni početak dodaje nove stavke i ne briše postojeće.
+// Kad preglednik sam prekine slušanje (tišina), mikrofon se ne pokreće sam ponovno.
 function alternativniUnos() { $("unos").focus(); }
 
 function pokreniSlusanje() {
@@ -409,19 +410,26 @@ function pokreniSlusanje() {
   catch (e) { javi("Glasovni unos nije dostupan. Pokušaj ponovno ili upiši proizvod."); return; }
   slusac = novi;
   novi.lang = "hr-HR";
-  novi.continuous = false;
+  novi.continuous = true;
   novi.interimResults = false;
   novi.maxAlternatives = 1;
-  let dodano = false;
+  const obradeni = new Set();
+  const dodani = [];
   let greska = false;
   const vrijedi = () => slusac === novi;
   novi.onresult = (e) => {
-    if (!vrijedi() || dodano) return;
-    const tekst = e.results[0][0].transcript.trim();
-    if (!tekst) return;
-    dodano = true;
-    dodajIzTeksta(tekst);
-    javi("Dodano: " + tekst + ". Za sljedeći artikl ponovno dodirni mikrofon.");
+    if (!vrijedi()) return;
+    for (let i = e.resultIndex || 0; i < e.results.length; i++) {
+      const rezultat = e.results[i];
+      if (obradeni.has(i) || rezultat.isFinal === false) continue;
+      obradeni.add(i);
+      const tekst = (rezultat[0]?.transcript || "").trim();
+      if (!tekst) continue;
+      const stavke = razdvojiGlasovniPopis(tekst);
+      dodajIzTeksta(stavke.join(", "));
+      dodani.push(...stavke);
+      javi("Dodano: " + stavke.join(", ") + ". Nastavi nabrajati ili dodirni Gotovo.");
+    }
   };
   novi.onerror = (e) => {
     if (!vrijedi()) return;
@@ -430,7 +438,7 @@ function pokreniSlusanje() {
       "not-allowed": "Dopusti pristup mikrofonu u postavkama preglednika.",
       "audio-capture": "Mikrofon nije dostupan. Provjeri koristi li ga druga aplikacija.",
       "network": "Usluga prepoznavanja govora trenutačno nije dostupna preko mreže.",
-      "no-speech": "Nije prepoznat govor. Ponovno dodirni mikrofon i reci jedan artikl.",
+      "no-speech": "Nije prepoznat govor. Dodirni mikrofon i nabroji stavke.",
       "service-not-allowed": "Preglednik ne dopušta prepoznavanje govora.",
     };
     javi(poruke[e.error] || "Glasovni unos je prekinut. Pokušaj ponovno ili upiši proizvod.");
@@ -440,13 +448,15 @@ function pokreniSlusanje() {
     slusac = null;
     $("mikrofon").classList.remove("slusa");
     $("mikrofon").setAttribute("aria-pressed", "false");
-    $("mikrofon-tekst").textContent = "Reci jedan artikl";
-    if (!dodano && !greska) javi("Nije prepoznat artikl. Ponovno dodirni mikrofon i pokušaj.");
+    $("mikrofon-tekst").textContent = stanje.popis.length ? "Nastavi popis" : "Reci popis";
+    if (!greska) javi(dodani.length
+      ? `Dodano ${dodani.length} stavki. Za zaboravljene stavke ponovno dodirni mikrofon.`
+      : "Nije prepoznata nijedna stavka. Dodirni mikrofon i pokušaj ponovno.");
   };
-  javi("Reci jedan artikl, primjerice mlijeko. Nakon upisa ponovno dodirni mikrofon za sljedeći.");
+  javi("Nabroji stavke, npr. „20 m2 laminata, 3 vreće cementa”. Kad završiš, dodirni Gotovo.");
   $("mikrofon").classList.add("slusa");
   $("mikrofon").setAttribute("aria-pressed", "true");
-  $("mikrofon-tekst").textContent = "Slušam… (dodirni za kraj)";
+  $("mikrofon-tekst").textContent = "Gotovo";
   try { novi.start(); }
   catch (e) { greska = true; javi("Glasovni unos nije dostupan. Pokušaj ponovno ili upiši proizvod."); novi.onend(); }
 }

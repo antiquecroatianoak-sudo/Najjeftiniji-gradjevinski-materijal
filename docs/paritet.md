@@ -8,7 +8,7 @@ nepromijenjen iz produkcije, uključujući pregledane crvene rubove žutih ploha
 | Funkcija u izvornoj aplikaciji | Ovdje | Provjera |
 |---|---|---|
 | Popis za kupnju kao glavni prikaz | da | Playwright, 320/390/1280 px |
-| Glasovni unos: jedan pritisak = jedan artikl, odmah spremljen, bez automatskog ponovnog pokretanja | da, isti kod | `tests/glasovni-unos.cjs` |
+| Glasovni unos | **prošireno**: jedan pritisak započinje nabrajanje više stavki, „Gotovo” završava, „Nastavi popis” dodaje zaboravljene stavke bez brisanja; svaka stavka odmah se sprema; bez automatskog ponovnog pokretanja (kao u izvornoj aplikaciji) | `tests/glasovni-unos.cjs`, Playwright sa simuliranim prepoznavanjem |
 | Ručni unos i nabrajanje više artikala (bez pomoćnih tekstova, kao nakon PR #9) | da; decimalni zarez („2,5 m2”) nije razdjelnik | `tests/kosarica.cjs` |
 | Količine (+/−), brisanje, oznaka „u košarici”, napredak | da; uz izgovorenu mjeru +/− mijenja m²/m³/kg za 1 | Playwright |
 | Spremanje popisa na uređaju | da (`gradjevina-v1`, odvojeno od košarice) | — |
@@ -31,4 +31,4 @@ nepromijenjen iz produkcije, uključujući pregledane crvene rubove žutih ploha
 - Stvarni podaci: 7 trgovaca provjereno je stvarnim uvozom cijelih datoteka (vidi `docs/izvori.md`); dnevni rad automatizacije na GitHubu još nije pokrenut.
 - Prepoznavanje specifikacija i količina testirano je na sintetičkim nazivima; stvarni cjenici će tražiti dorade pravila.
 - Cijena je najniža u trgovini (svim poslovnicama); lokacija poslovnice i dostava nisu uključeni u usporedbu.
-- Glasovni unos ostaje „jedan artikl po pritisku” kao u produkciji (kontinuirano nabrajanje je vraćeno u izvornoj aplikaciji 851a3d2).
+- Kontinuirano nabrajanje testirano je samo sa simuliranim prepoznavanjem govora; ponašanje stvarnog mikrofona na Androidu treba provjeriti na uređaju (izvorna aplikacija je 851a3d2 vratila jedan artikl po pritisku zbog problema na uređaju).
