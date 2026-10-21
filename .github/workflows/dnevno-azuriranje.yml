@@ -85,3 +85,49 @@ jobs:
         if: steps.uvoz.outputs.ima == 'da'
         id: objava
         uses: actions/deploy-pages@v4
+
+  # Na radnim granama: stvarno otkrivanje i uvoz za provjeru, bez objave. Rezultat je artefakt "provjera-izvora".
+  provjera-izvora:
+    if: github.ref_name != github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Testovi
+        run: |
+          python tests/uvoz.py
+          python tests/otkrivanje.py
+      - name: Otkrij nove javne cjenike
+        continue-on-error: true
+        timeout-minutes: 15
+        run: python scripts/otkrivanje.py
+      - name: Uvezi provjerene izvore (bez objave)
+        timeout-minutes: 20
+        run: |
+          python scripts/uvoz.py --otkriveni site/data/otkriveni.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          st = json.loads(Path("site/data/stanje-izvora.json").read_text())
+          ok = [s for s in st["uvezeno"] if s["uspjeh"]]
+          print(f"Uspješnih izvora: {len(ok)} od {len(st['uvezeno'])}")
+          for s in st["uvezeno"]:
+              print(("OK " if s["uspjeh"] else "-- ") + json.dumps({k: s.get(k) for k in ("naziv", "url", "datum", "primljeno", "prihvaceno", "nedostupno", "odbaceno", "greska")}, ensure_ascii=False))
+          p = Path("site/data/proizvodi.json")
+          if p.exists():
+              d = json.loads(p.read_text())
+              print(f"Ponuda: {len(d['proizvodi'])}, izvora: {len(d['lanci'])}, datum: {d['datum']}")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: provjera-izvora
+          path: |
+            site/data/stanje-izvora.json
+            site/data/otkriveni.json
+          if-no-files-found: ignore
