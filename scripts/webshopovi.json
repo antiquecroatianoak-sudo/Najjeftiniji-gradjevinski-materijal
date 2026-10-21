@@ -1,0 +1,18 @@
+{
+  "napomena": "Pilot: webshopovi bez CSV/XML cjenika (run 27/29). Cijene iz schema.org Product/Offer na službenim stranicama proizvoda; scripts/webshop.py. Uključuje se samo na radnoj grani dok pilot ne prođe pregled.",
+  "trgovci": [
+    {"domena": "merkury.hr", "naziv": "Merkury"},
+    {"domena": "mc-plus.hr", "naziv": "MC PLUS"},
+    {"domena": "ikoma.hr", "naziv": "IKOMA"},
+    {"domena": "fero-term.hr", "naziv": "Fero-Term"},
+    {"domena": "era-commerce.hr", "naziv": "ERA-COMMERCE", "oib": "28609792467"},
+    {"domena": "bitpromet.hr", "naziv": "Bit Promet", "host": "www.bitpromet.hr"},
+    {"domena": "drvona.hr", "naziv": "Drvona", "host": "www.drvona.hr"},
+    {"domena": "consortium.hr", "naziv": "Consortium"},
+    {"domena": "frida-mijic.hr", "naziv": "Frida Mijić"},
+    {"domena": "akord-zupanja.hr", "naziv": "Akord Županja"},
+    {"domena": "gradja.hr", "naziv": "Građa.hr"},
+    {"domena": "petrokov.hr", "naziv": "Petrokov"},
+    {"domena": "katalog.gradnjainvest.hr", "naziv": "Gradnja invest"}
+  ]
+}

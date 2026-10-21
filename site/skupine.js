@@ -88,6 +88,10 @@ rukavice|Radne rukavice|radne rukavice;rukavice`;
     ["cijev", new Set(["pvc-cijev"])],
   ]);
 
+  // Roditelj → djeca unutar ovog popisa vrsta (ista veza kao kod prepoznavanja posebnije vrste).
+  const roditelji = new Map([...overrides].flatMap(([r, djeca]) => [...djeca].map((d) => [d, r])));
+  const potomci = (id) => [...(overrides.get(id) || [])].flatMap((d) => [d, ...potomci(d)]);
+
   function pronadiRijeci(r) {
     const hits = [];
     for (let pos = 0; pos < r.length; pos++) {
@@ -107,10 +111,12 @@ rukavice|Radne rukavice|radne rukavice;rukavice`;
     const heads = hits.filter((h) => boundary < 0 || h.pos < boundary || (h.pos === 0 && h.duzina > 1));
     heads.sort((a, b) => a.pos - b.pos || b.duzina - a.duzina);
     let glavni = heads[0] || null;
+    // Razlog nerazvrstavanja (za reviziju): bez pojma, pojam samo iza prijedloga, nepoznate riječi prije pojma, pribor.
+    let razlog = !hits.length ? "nijedan poznati pojam" : !glavni ? "pojam samo iza prijedloga" : "";
     // Nepoznate riječi prije glavne imenice mogu skrivati stvarnu vrstu.
     // Ne nagađaj da je sastojak (npr. mlijeko u kavi) glavni proizvod.
     if (glavni && !upit && r.slice(Math.max(0, Number(marka) || 0), glavni.pos)
-      .some((w) => !opisne.has(w) && !/^\d/.test(w))) glavni = null;
+      .some((w) => !opisne.has(w) && !/^\d/.test(w))) { glavni = null; razlog = "nepoznate riječi prije pojma"; }
     if (glavni && overrides.has(glavni.id)) {
       const special = hits.find((h) => overrides.get(glavni.id).has(h.id));
       if (special) glavni = special;
@@ -118,9 +124,11 @@ rukavice|Radne rukavice|radne rukavice;rukavice`;
     // Pribor nije materijal: "kanta za boju", "valjak za boju" nisu boja.
     const naziv = r.join(" ");
     if (glavni && ["boja", "boja-zid", "fasadna-boja"].includes(glavni.id)
-      && /\b(valj\w*|kist\w*|kant\w*|posud\w*|spric\w*|pistolj\w*)\b/.test(naziv.split(" ").slice(0, glavni.pos).join(" "))) glavni = null;
+      && /\b(valj\w*|kist\w*|kant\w*|posud\w*|spric\w*|pistolj\w*)\b/.test(naziv.split(" ").slice(0, glavni.pos).join(" "))) {
+      glavni = null; razlog = "pribor, ne materijal";
+    }
     const okusi = [...new Set(hits.filter((h) => voce.has(h.id)).map((h) => h.id))].sort();
-    return { rijeci: r, hits, glavni, okusi };
+    return { rijeci: r, hits, glavni, okusi, razlog: glavni ? "" : razlog };
   }
 
   function otisak(proizvodi) {
@@ -188,7 +196,8 @@ rukavice|Radne rukavice|radne rukavice;rukavice`;
       const up = razrijesiUpit(upit);
       if (!up) return null; // Neprepoznati nazivi ostaju u postojećem pretraživanju.
       const {id, dodatno, trazeniOkusi} = up;
-      const clanovi = poVrsti.get(id) || [];
+      // Odabir roditelja uključuje sve potomke (npr. „boja” → i boja za zidove, fasadna boja, temeljni premaz).
+      const clanovi = [id, ...potomci(id)].flatMap((v) => poVrsti.get(v) || []);
       return clanovi.filter((i) => {
         const a = dajAnalizu(i);
         if (trazeniOkusi.length && a.okusi.join("+") !== trazeniOkusi.join("+")) return false;
@@ -219,7 +228,7 @@ rukavice|Radne rukavice|radne rukavice;rukavice`;
   }
   // Svi istovrijedni nazivi; glasovni unos njima razdvaja nabrajanje bez zareza.
   const poznatiNazivi = zapis.split("\n").flatMap((r) => r.split("|")[2].split(";"));
-  const api = { pripremi, analiziraj, poznatiNazivi, definicije: vrste.map(({id,naziv}) => ({id,naziv})),
+  const api = { pripremi, analiziraj, poznatiNazivi, definicije: vrste.map(({id,naziv}) => ({id, naziv, roditelj: roditelji.get(id) || null})), potomci,
     nazivi: Object.fromEntries(zapis.split("\n").map((r) => [r.split("|")[0], r.split("|")[2].split(";")])) };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Skupine = api;

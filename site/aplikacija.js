@@ -572,6 +572,8 @@ function usporedbaKosarice() {
 
 // Datum cjenika trgovca (stariji cjenici nemaju zaseban datum, pa vrijedi datum cijelog cjenika).
 function datumCijene(lanac) {
+  // Prazan datum: izvor bez datuma objave (oglas, cijena sa stranice proizvoda); vrijeme provjere je u detaljima ponude.
+  if (podaci.datumiLanaca && podaci.datumiLanaca[lanac] === "") return "nije objavljen · vidi provjereno";
   const d = (podaci.datumiLanaca && podaci.datumiLanaca[lanac]) || podaci.datum;
   return /^\d{4}-\d{2}-\d{2}$/.test(d || "") ? d.split("-").reverse().join(".") + "." : "nepoznat";
 }
@@ -746,6 +748,9 @@ function prikaziRezultate() {
   prikaziJednuTrgovinu();
 }
 
+const PRVIH_TRGOVINA = 8;
+let prikaziSveTrgovine = false;
+
 // Koliko bi koštalo da se sve kupi u istoj trgovini.
 function prikaziJednuTrgovinu() {
   const ul = $("trgovine-usporedba");
@@ -761,10 +766,11 @@ function prikaziJednuTrgovinu() {
       : "Nije moguće usporediti cijeli popis.");
   ul.appendChild(napomena);
 
-  const redovi = [...zbroj].filter(([, z]) => z.nema.length < stanje.popis.length)
-    .sort(([, a], [, b]) => a.nema.length - b.nema.length || a.ukupno - b.ukupno || a.usporedno - b.usporedno)
-    .slice(0, 8);
-  const najjeftinijaCijela = Math.min(...redovi.filter(([, z]) => !z.nema.length).map(([, z]) => z.ukupno));
+  const sviRedovi = [...zbroj].filter(([, z]) => z.nema.length < stanje.popis.length)
+    .sort(([, a], [, b]) => a.nema.length - b.nema.length || a.ukupno - b.ukupno || a.usporedno - b.usporedno);
+  // Prvih PRVIH_TRGOVINA odmah, ostale na zahtjev: nijedna trgovina nije skrivena bez mogućnosti prikaza.
+  const redovi = prikaziSveTrgovine ? sviRedovi : sviRedovi.slice(0, PRVIH_TRGOVINA);
+  const najjeftinijaCijela = Math.min(...sviRedovi.filter(([, z]) => !z.nema.length).map(([, z]) => z.ukupno));
   if (!redovi.length) { $("jedna-trgovina").hidden = true; return; }
 
   for (const [l, z] of redovi) {
@@ -799,6 +805,16 @@ function prikaziJednuTrgovinu() {
     li.appendChild(b);
     ul.appendChild(li);
   }
+  if (sviRedovi.length > redovi.length) {
+    const li = document.createElement("li");
+    li.className = "savjet";
+    li.appendChild(gumb(`Prikaži sve trgovine (${sviRedovi.length})`, "sljedeci", () => {
+      prikaziSveTrgovine = true;
+      prikaziJednuTrgovinu();
+    }));
+    ul.appendChild(li);
+  }
+  return { prikazano: redovi.length, ukupno: sviRedovi.length };
 }
 
 function promijeni(grupa, smjer) {

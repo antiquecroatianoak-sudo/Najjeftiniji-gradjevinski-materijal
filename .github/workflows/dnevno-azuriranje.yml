@@ -39,9 +39,11 @@ jobs:
         run: |
           python tests/uvoz.py
           python tests/otkrivanje.py
+          python tests/webshop.py
           node tests/skupine.cjs
           node tests/kosarica.cjs
           node tests/glasovni-unos.cjs
+          node tests/filtri.cjs
 
       # Zadnji valjani cjenik svakog izvora, za dan kad izvor ne radi (starost se provjerava pri uvozu).
       - uses: actions/cache/restore@v4
@@ -95,7 +97,7 @@ jobs:
   provjera-izvora:
     if: github.ref_name != github.event.repository.default_branch
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 100
     permissions:
       contents: read
     steps:
@@ -110,9 +112,11 @@ jobs:
         run: |
           python tests/uvoz.py
           python tests/otkrivanje.py
+          python tests/webshop.py
           node tests/skupine.cjs
           node tests/kosarica.cjs
           node tests/glasovni-unos.cjs
+          node tests/filtri.cjs
       - name: Izbornik kategorija Njuškala (samo kategorije, bez oglasa)
         continue-on-error: true
         timeout-minutes: 5
@@ -121,10 +125,14 @@ jobs:
         continue-on-error: true
         timeout-minutes: 40
         run: python scripts/otkrivanje.py
+      - name: Pilot cijena sa stranica proizvoda (schema.org, samo radna grana)
+        continue-on-error: true
+        timeout-minutes: 30
+        run: python scripts/webshop.py
       - name: Uvezi provjerene izvore (bez objave)
         timeout-minutes: 20
         run: |
-          python scripts/uvoz.py --otkriveni site/data/otkriveni.json
+          python scripts/uvoz.py --otkriveni site/data/otkriveni.json --webshop site/data/webshop.json
           python - <<'PY'
           import json, os
           from pathlib import Path
@@ -139,6 +147,10 @@ jobs:
               d = json.loads(p.read_text())
               print(f"Jedinstvenih proizvoda: {len(d['proizvodi'])}, izvora: {len(d['lanci'])}, datum: {d['datum']}")
           PY
+      - name: Sirovi uzorak spojenih redaka (dijagnoza)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: python scripts/uzorak_spajanja.py
       - name: Razvrstavanje uvezenog skupa (isto kao na glavnoj grani)
         run: |
           if [ -f site/data/proizvodi.json ]; then node scripts/razvrstaj.cjs; else echo "Nema uvezenog skupa"; fi
@@ -156,4 +168,6 @@ jobs:
             site/data/njuskalo-kategorije.json
             site/data/revizija.json
             site/data/skupine.json
+            site/data/webshop.json
+            site/data/uzorak-spajanja.json
           if-no-files-found: ignore

@@ -385,10 +385,10 @@ def kljuc_oglasa(o: dict) -> str:
 # ---------- Obrada ----------
 def _procitaj(izvor: dict, sadrzaj) -> tuple[list, str]:
     tekst = dekodiraj(sadrzaj) if isinstance(sadrzaj, bytes) else sadrzaj
-    if izvor.get("format") == "oglasi-json":
+    if izvor.get("format") in ("oglasi-json", "web-json"):
         stavke = json.loads(tekst)
         if not isinstance(stavke, list):
-            raise ValueError("oglasi-json mora biti popis oglasa")
+            raise ValueError(f"{izvor['format']} mora biti popis zapisa")
         return stavke, tekst
     if izvor.get("format") == "xml":
         return list(citaj_xml(tekst, izvor.get("stupci"))), tekst
@@ -422,7 +422,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
         try:
             stavke, tekst = _procitaj(izvor, ucitaj(izvor))
             # Datum objave: iz popisa datoteka ili iz zaglavlja XML-a, nikad vrijeme preuzimanja.
-            if izvor.get("format") != "oglasi-json":
+            if izvor.get("format") not in ("oglasi-json", "web-json"):
                 datum = datum_objave(izvor.get("datum")) or (datum_iz_xml(tekst) if izvor.get("format") == "xml" else None)
                 if datum is None:
                     raise ValueError("nepoznat datum cjenika")
@@ -442,7 +442,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
         if stavke is None:
             stanje.append({**zapis_stanja, "uspjeh": False, "greska": greska})
             continue
-        if izvor.get("format") != "oglasi-json":
+        if izvor.get("format") not in ("oglasi-json", "web-json"):
             zapis_stanja["datum"] = datum.isoformat()
             if izvor.get("iz_predmemorije"):
                 zapis_stanja["iz_predmemorije"] = True  # današnji dohvat nije uspio
@@ -486,6 +486,28 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                     neuspordeno += 1
                 kljuc = f"oglas:{izvor['id']}:{s.get('id') or k}"
                 marka = ""
+            elif izvor.get("format") == "web-json":
+                # Ponuda sa stranice proizvoda (schema.org): vrijeme provjere nije datum objave cijene.
+                provjereno = datetime.fromisoformat(s["provjereno"])
+                if (sada - provjereno).days > CJENIK_VRIJEDI_DANA:
+                    zastarjelo += 1
+                    continue
+                cijena = u_broj(s.get("cijena"))
+                if cijena is None or round(cijena, 2) <= 0.01:
+                    odbaceno += 1
+                    continue
+                naziv = str(s.get("naziv") or "").strip()
+                marka = s.get("marka") or ""
+                m = mjera("", "", cijena, None, naziv)
+                spec = specifikacija(naziv, m[1]) if m else ""
+                meta = {"izvor": izvor["naziv"], "url": s.get("url") if str(s.get("url", "")).startswith("https://") else "",
+                        "provjereno": s["provjereno"][:10],
+                        "napomena": " · ".join(x for x in ["cijena sa stranice proizvoda", f"PDV {s['pdv']}" if s.get("pdv") else ""] if x)}
+                if s.get("razlog") or not m:
+                    meta["razlog"] = s.get("razlog") or "količina nije prepoznata"
+                    m = None
+                    neuspordeno += 1
+                kljuc = (s.get("gtin") or "").strip() or f"{izvor['id']}:{s.get('sku') or s.get('url')}"
             else:
                 # Proizvod koji trgovac navodi kao nedostupan ne može biti najpovoljnija ponuda.
                 if normaliziraj(s.get("dostupnost", "")) in ("nedostupan", "nedostupno", "ne", "0"):
@@ -746,6 +768,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--izvori", type=Path, default=IZVORI)
     ap.add_argument("--otkriveni", type=Path, help="site/data/otkriveni.json: automatski provjereni kandidati")
+    ap.add_argument("--webshop", type=Path, help="site/data/webshop.json: pilot ponuda sa stranica proizvoda (schema.org)")
     ap.add_argument("--predmemorija", type=Path, default=PREDMEMORIJA)
     ap.add_argument("--lokalno", nargs="*", default=[], help="id=datoteka: koristi lokalnu datoteku umjesto preuzimanja")
     ap.add_argument("--datum", nargs="*", default=[], help="id=GGGG-MM-DD: datum objave cjenika s popisa datoteka izvora")
@@ -763,7 +786,18 @@ def main():
         from otkrivanje import domena, izvori_iz_otkrivanja
         poznate = {domena(i.get("stranica") or i.get("url") or "") for i in aktivni}
         aktivni += [i for i in izvori_iz_otkrivanja(a.otkriveni) if domena(i.get("stranica") or i.get("url")) not in poznate]
-    ucitaj = lambda izvor: Path(lokalno[izvor["id"]]).read_bytes() if izvor["id"] in lokalno else preuzmi_url(izvor["url"])
+    web = {}
+    if a.webshop and a.webshop.exists():
+        from otkrivanje import domena as _dom
+        poznate_web = {_dom(i.get("stranica") or i.get("url") or "") for i in aktivni}
+        for dom, v in json.loads(a.webshop.read_text(encoding="utf-8")).get("ponude", {}).items():
+            if dom in poznate_web:
+                continue  # trgovac sa službenim CSV/XML cjenikom koristi cjenik
+            web[f"web:{dom}"] = json.dumps(v["ponude"], ensure_ascii=False).encode()
+            aktivni.append({"id": f"web:{dom}", "naziv": f"{v['naziv']} (web)", "vrsta": "trgovina", "format": "web-json",
+                            "url": f"https://{dom}/", "status": "provjereno", "omogucen": True, "web": True})
+    ucitaj = lambda izvor: web[izvor["id"]] if izvor["id"] in web else (
+        Path(lokalno[izvor["id"]]).read_bytes() if izvor["id"] in lokalno else preuzmi_url(izvor["url"]))
     dohvati_stranicu = lambda url: next((Path(v).read_bytes() for k, v in lokalno.items() if k == url), None) or preuzmi_url(url)
     izvori, ucitaj, preuzeto = s_predmemorijom(razlozi_izvore(aktivni, dohvati_stranicu), ucitaj, a.predmemorija)
     podaci, stanje = obradi(izvori, ucitaj)
@@ -785,7 +819,8 @@ def main():
     sazetak = (f"Trgovaca s valjanim cjenikom: {len(trgovci)} · poslovnica/izvora: {sum(s['uspjeh'] for s in stanje)} · "
                f"ulaznih redaka: {brojke['ulaznih_redaka']} · prihvaćenih redaka: {brojke['prihvacenih_redaka']} · "
                f"ponuda proizvod×izvor: {brojke['ponuda_proizvod_izvor']} · jedinstvenih proizvoda: {brojke['jedinstvenih_proizvoda']} · "
-               f"iz predmemorije: {sum(1 for s in stanje if s.get('iz_predmemorije'))}")
+               f"iz predmemorije: {sum(1 for s in stanje if s.get('iz_predmemorije'))} · "
+               f"od toga sa stranica proizvoda (pilot): {len({domena(i['url']) for i in izvori if i.get('web') and i['id'] in uspjesni})}")
     print(sazetak)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
