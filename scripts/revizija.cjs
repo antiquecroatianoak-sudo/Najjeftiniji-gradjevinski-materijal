@@ -76,7 +76,15 @@ const filtriGubici = [];
 let filtriProvjera = 0;
 for (const d of Skupine.definicije) {
   const upit = Skupine.nazivi[d.id][0];
-  const clanovi = new Set([...(g.pogoci(upit) || []), ...g.moguciPogoci(upit)]);
+  // Očekivano: razvrstani i mogući članovi te nerazvrstani proizvodi koji sadrže sve riječi upita
+  // (aplikacija ih namjerno vraća kao „vrsta za provjeru“). Riječi se ovdje provjeravaju neovisno o aplikaciji.
+  const nastavci = ["", "a", "e", "i", "o", "u", "om", "em", "im", "ima", "ama", "ih", "oj", "og", "ja", "je", "ji", "ju", "jom", "ovi", "ove", "ova", "evi", "eve"];
+  const kor = (w) => { const k = w.length >= 4 ? w.replace(/[aeiou]+$/, "") : w; return k.length < 3 ? w : k; };
+  const rijeciUpita = Skupine.analiziraj(upit).rijeci.filter((w) => !["s", "sa", "od", "za", "u", "na", "bez", "iz", "po"].includes(w)).map(kor);
+  const sadrziSve = (i) => { const r = Skupine.analiziraj(podaci.proizvodi[i][0]).rijeci;
+    return rijeciUpita.every((k) => r.some((w) => w.startsWith(k) && nastavci.includes(w.slice(k.length)))); };
+  const clanovi = new Set([...(g.pogoci(upit) || []), ...g.moguciPogoci(upit),
+    ...podaci.proizvodi.map((_, i) => i).filter((i) => !g.vrstaProizvoda(i) && sadrziSve(i))]);
   for (const k of kombinacije) {
     app.__filtar(k.iskljuceni, k.jedna);
     const dopusteni = A.dozvoljeniLanci();
