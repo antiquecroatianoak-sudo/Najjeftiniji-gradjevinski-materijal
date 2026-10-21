@@ -29,12 +29,25 @@ DOMENE = KORIJEN / "scripts" / "domene.json"
 IZLAZ = KORIJEN / "site" / "data" / "otkriveni.json"
 AGENT = "najjeftiniji-gradjevinski-materijal/1 (javni cjenik)"
 
+# Uobičajene putanje, uključujući one koje generiraju WordPress dodaci za NN 101/2026 (npr. MJDD Sidrena Cijena).
 POZNATE_PUTANJE = ["/cjenik/", "/cjenik", "/cjenici/", "/sidrene-cijene/", "/sidrena-cijena/", "/prices-list",
-                   "/sidrena-cijena.xml", "/cjenik.xml"]
+                   "/sidrena-cijena.xml", "/sidrena-cijena.csv", "/sidrena-cijena-001.xml", "/sidrena-cijena-001.csv",
+                   "/cjenik.xml"]
 RE_POVEZNICA = re.compile(r"""href\s*=\s*(?:"([^"]+)"|'([^']+)'|([^"'\s>]+))""", re.I)
 RE_STRANICA_CJENIKA = re.compile(r"cjeni|sidren|prices?-list|price-list", re.I)
 # Kandidat mora imati barem toliko valjanih ponuda da bi se smatrao pravim cjenikom.
 NAJMANJE_PONUDA = 20
+# Novootkriveni trgovac mora prodavati građevinski materijal/opremu: barem ovaj udio naziva s građevinskim pojmom.
+NAJMANJI_UDIO_GRADJEVINSKOG = 0.10
+GRADJEVINSKI_POJMOVI = re.compile(r"\b(cement|beton|zbuk|malter|mort|ljepil|fug|glet|gips|knauf|rigips|opek|cigl|blok|crijep|"
+                                  r"stiropor|eps|xps|vun|izolac|hidroizol|bitum|foli|armatur|profil|osb|iveric|sperploc|letv|"
+                                  r"gred|dask|laminat|parket|ploc|boj|lak|lazur|premaz|silikon|kit|pjen|mrez|vijak|vijc|cav|tipl|"
+                                  r"cijev|kabel|oluk|mjesalic|busilic|brusilic|kolica|ljestv|skel|lopat|alat|pijes|sljunak|vapn)", re.I)
+# Imenici/agregatori i velike platforme nisu trgovci.
+NIJE_TRGOVAC = re.compile(r"(facebook|instagram|twitter|x\.com|youtube|linkedin|google|apple|microsoft|wordpress|wikipedia|"
+                          r"github|narodne-novine|gov\.hr|zakon\.hr|tiktok|pinterest|whatsapp|viber)", re.I)
+# Najviše novih domena iz imenika po pokretanju (ostale dolaze sljedećih dana).
+NAJVISE_NOVIH = 150
 
 
 def domena(url: str) -> str:
@@ -111,7 +124,43 @@ def otkrij(pocetna: str, dohvati, robots=None) -> list[dict]:
     return kandidati
 
 
-def provjeri(kandidat: dict, dohvati, sada: datetime | None = None) -> dict:
+def udio_gradjevinskog(proizvodi: list) -> float:
+    if not proizvodi:
+        return 0.0
+    return sum(1 for p in proizvodi if GRADJEVINSKI_POJMOVI.search(uvoz.normaliziraj(p[0]))) / len(proizvodi)
+
+
+def uzorak(dohvati, url: str) -> str:
+    """Početak datoteke koja se ne može obraditi, za dijagnozu (bez osobnih podataka: javni cjenik)."""
+    try:
+        return re.sub(r"\s+", " ", uvoz.dekodiraj(dohvati(url))[:240])
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def naslov(html: str) -> str:
+    m = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+    return re.sub(r"\s+", " ", m.group(1)).strip()[:120] if m else ""
+
+
+def domene_iz_imenika(url: str, dohvati, poznate: set) -> list[dict]:
+    """
+    Nove domene trgovaca iz javnog imenika/agregatora cjenika: vanjske .hr poveznice koje nisu poznate,
+    nisu platforme i nisu sam imenik. Provjera da su trgovci građevinskog materijala slijedi u provjeri().
+    """
+    vlastita = domena(url)
+    nove, vidjeno = [], set()
+    for veza in poveznice(uvoz.dekodiraj(dohvati(url)), url):
+        d = domena(veza)
+        if (not d.endswith(".hr") or d == vlastita or d.endswith("." + vlastita) or d in poznate or d in vidjeno
+                or NIJE_TRGOVAC.search(d)):
+            continue
+        vidjeno.add(d)
+        nove.append({"domena": d, "naziv": d, "pocetna": f"https://{d}/", "izvor": f"imenik {vlastita}"})
+    return nove
+
+
+def provjeri(kandidat: dict, dohvati, sada: datetime | None = None, gradjevinski: bool = False) -> dict:
     """Preuzme i uveze kandidat istim uvozom kao glavni cjenik. Vraća dokaz ili razlog odbijanja."""
     sada = sada or datetime.now(timezone.utc)
     izvor = {"id": f"otkriveno:{kandidat['domena']}", "naziv": kandidat["domena"], "vrsta": "trgovina",
@@ -128,13 +177,18 @@ def provjeri(kandidat: dict, dohvati, sada: datetime | None = None) -> dict:
         return {**kandidat, "prihvacen": False, "razlog": f"dohvat ili obrada nije uspjela: {e}"[:300]}
     s = stanje[0] if stanje else {}
     if not s.get("uspjeh"):
-        return {**kandidat, "prihvacen": False, "razlog": s.get("greska", "nepoznata greška")}
+        greska = s.get("greska", "nepoznata greška")
+        dodatak = {"uzorak": uzorak(dohvati, izvori[0]["url"])} if "well-formed" in greska or "element" in greska or "stupce" in greska else {}
+        return {**kandidat, **dodatak, "prihvacen": False, "razlog": greska}
     s_jedinicom = sum(1 for p in (podaci or {}).get("proizvodi", []) if p[3])
     dokaz = {"datum": s.get("datum"), "primljeno": s.get("primljeno"), "prihvaceno": s.get("prihvaceno"),
              "nedostupno": s.get("nedostupno", 0), "s_jedinicom": s_jedinicom, "provjereno": sada.isoformat(timespec="minutes"),
              "url": s.get("url")}
     if (s.get("prihvaceno") or 0) < NAJMANJE_PONUDA:
         return {**kandidat, **dokaz, "prihvacen": False, "razlog": f"premalo valjanih ponuda ({s.get('prihvaceno')})"}
+    dokaz["udio_gradjevinskog"] = round(udio_gradjevinskog(podaci["proizvodi"]), 3)
+    if gradjevinski and dokaz["udio_gradjevinskog"] < NAJMANJI_UDIO_GRADJEVINSKOG:
+        return {**kandidat, **dokaz, "prihvacen": False, "razlog": f"asortiman nije građevinski ({dokaz['udio_gradjevinskog']:.0%})"}
     return {**kandidat, **dokaz, "prihvacen": True, "razlog": ""}
 
 
@@ -170,6 +224,38 @@ def robots_provjera(dohvati):
     return smije
 
 
+def run(trgovci: list[dict], dohvati, smije, sada: datetime | None = None) -> list[dict]:
+    """Za svakog trgovca: otkrij cjenike, provjeri ih i zadrži najbolji. Novi iz imenika moraju biti građevinski."""
+    rezultat = []
+    for trgovac in trgovci:
+        try:
+            html = uvoz.dekodiraj(dohvati(f"https://{trgovac['domena']}/")) if smije(f"https://{trgovac['domena']}/") else ""
+            trgovac = {**trgovac, "naslov": naslov(html)}
+        except Exception:  # noqa: BLE001
+            pass
+        nadjeni = otkrij(trgovac["pocetna"], dohvati, smije)
+        if not nadjeni:
+            rezultat.append({**trgovac, "prihvacen": False, "razlog": "cjenik nije pronađen ili je pristup odbijen"})
+            continue
+        provjere = [provjeri(k, dohvati, sada, gradjevinski=bool(trgovac.get("izvor"))) for k in nadjeni]
+        najbolji = next((p for p in provjere if p["prihvacen"]), provjere[0])
+        rezultat.append({**trgovac, **najbolji, "ostali": [p for p in provjere if p is not najbolji]})
+    return rezultat
+
+
+def dedupliciraj(rezultat: list[dict]) -> list[dict]:
+    """Isti trgovac na dvije domene (isti naslov stranice i isti broj ponuda) prihvaća se jednom."""
+    vidjeno = set()
+    for r in rezultat:
+        if not r.get("prihvacen"):
+            continue
+        kljuc = (uvoz.normaliziraj(r.get("naslov", "")), r.get("prihvaceno"))
+        if kljuc[0] and kljuc in vidjeno:
+            r["prihvacen"], r["razlog"] = False, "isti trgovac kao već prihvaćena domena"
+        vidjeno.add(kljuc)
+    return rezultat
+
+
 def main():
     izvori = json.loads(uvoz.IZVORI.read_text(encoding="utf-8"))["izvori"]
     dodatne = json.loads(DOMENE.read_text(encoding="utf-8"))["domene"] if DOMENE.exists() else []
@@ -185,25 +271,34 @@ def main():
             raise zapamceno[url]
         return zapamceno[url]
     smije = robots_provjera(dohvati)
-    rezultat = []
-    for trgovac in pocetne_domene(izvori, dodatne):
-        nadjeni = otkrij(trgovac["pocetna"], dohvati, smije)
-        if not nadjeni:
-            rezultat.append({**trgovac, "prihvacen": False, "razlog": "cjenik nije pronađen ili je pristup odbijen"})
-            continue
-        provjere = [provjeri(k, dohvati) for k in nadjeni]
-        najbolji = next((p for p in provjere if p["prihvacen"]), provjere[0])
-        rezultat.append({**trgovac, **najbolji, "ostali": [p for p in provjere if p is not najbolji]})
+    imenici = json.loads(DOMENE.read_text(encoding="utf-8")).get("imenici", []) if DOMENE.exists() else []
+    trgovci = pocetne_domene(izvori, dodatne)
+    poznate = {t["domena"] for t in trgovci} | {domena(i.get("stranica") or i.get("url") or "") for i in izvori}
+    # Nove domene iz javnih imenika cjenika (bez tražilice i bez ključa).
+    pregled_imenika = []
+    for imenik in imenici:
+        try:
+            nove = domene_iz_imenika(imenik["url"], dohvati, poznate)[:NAJVISE_NOVIH]
+            pregled_imenika.append({"url": imenik["url"], "novih_domena": len(nove)})
+            poznate |= {n["domena"] for n in nove}
+            trgovci += nove
+        except Exception as e:  # noqa: BLE001
+            pregled_imenika.append({"url": imenik["url"], "greska": str(e)[:200]})
+    rezultat = run(trgovci, dohvati, smije)
+    rezultat = dedupliciraj(rezultat)
     IZLAZ.parent.mkdir(parents=True, exist_ok=True)
     privremeno = IZLAZ.with_suffix(".tmp")
     privremeno.write_text(json.dumps({"azurirano": datetime.now(timezone.utc).isoformat(timespec="minutes"),
-                                      "kandidati": rezultat}, ensure_ascii=False, indent=1), encoding="utf-8")
+                                      "imenici": pregled_imenika, "kandidati": rezultat}, ensure_ascii=False, indent=1), encoding="utf-8")
     privremeno.replace(IZLAZ)
     prihvaceni = [r for r in rezultat if r.get("prihvacen")]
     print(f"Otkrivanje: {len(rezultat)} trgovaca provjereno, {len(prihvaceni)} s valjanim cjenikom")
     for r in rezultat:
-        print(("OK " if r.get("prihvacen") else "-- ") + f"{r['domena']}: " + (
-            f"{r.get('prihvaceno')} ponuda, cjenik od {r.get('datum')}" if r.get("prihvacen") else r.get("razlog", "")))
+        print(("OK " if r.get("prihvacen") else "-- ") + f"{r['domena']}" + (f" [{r['izvor']}]" if r.get("izvor") else "") + ": " + (
+            f"{r.get('prihvaceno')} ponuda, cjenik od {r.get('datum')}, {r.get('url') or r.get('stranica')}" if r.get("prihvacen")
+            else r.get("razlog", "")) + (f" | uzorak: {r['uzorak'][:160]}" if r.get("uzorak") else ""))
+    for i in pregled_imenika:
+        print("Imenik: " + json.dumps(i, ensure_ascii=False))
     return 0
 
 

@@ -123,5 +123,38 @@ with tempfile.TemporaryDirectory() as tmp:
     except ValueError:
         pass
     assert len(json.loads(izlaz.read_text())["proizvodi"]) == len(p1["proizvodi"])
+
+# Nove domene iz javnog imenika: samo nepoznate vanjske .hr domene, bez platformi i samog imenika.
+def hrana(n):
+    return xml("2026-10-21T05:00:00+00:00", n).replace(b"Ljepilo za plo\xc4\x8dice C2TE S1 25 kg", b"Mlijeko 1 l")
+IMENIK = {
+    "https://imenik.hr/": ('<a href="https://novi.hr/">Novi</a><a href="https://www.novi.hr/x">Novi</a>'
+                           '<a href="https://hrana.hr/">Hrana</a><a href="https://a.hr/">poznat</a>'
+                           '<a href="https://facebook.com/x">fb</a><a href="https://imenik.hr/o">o</a>'
+                           '<a href="https://strani.com/">strani</a><a href="https://isti.hr/">isti</a>').encode(),
+    "https://novi.hr/": b"<title>Novi gradjevinski</title>",
+    "https://novi.hr/sidrena-cijena.xml": xml("2026-10-21T05:00:00+00:00"),
+    "https://hrana.hr/": b"<title>Hrana</title>",
+    "https://hrana.hr/sidrena-cijena.xml": hrana(30),
+    "https://isti.hr/": b"<title>Novi gradjevinski</title>",
+    "https://isti.hr/sidrena-cijena.xml": xml("2026-10-21T05:00:00+00:00"),
+}
+def dohvati_i(url):
+    if url not in IMENIK:
+        raise OSError("HTTP Error 404: Not Found")
+    return IMENIK[url]
+nove = o.domene_iz_imenika("https://imenik.hr/", dohvati_i, {"a.hr"})
+assert [n["domena"] for n in nove] == ["novi.hr", "hrana.hr", "isti.hr"], nove
+assert all(n["izvor"] == "imenik imenik.hr" for n in nove)
+rez = o.dedupliciraj(o.run(nove, dohvati_i, lambda url: True, sada))
+po = {r["domena"]: r for r in rez}
+assert po["novi.hr"]["prihvacen"] and po["novi.hr"]["udio_gradjevinskog"] == 1.0, po["novi.hr"]
+assert not po["hrana.hr"]["prihvacen"] and po["hrana.hr"]["razlog"].startswith("asortiman nije građevinski"), po["hrana.hr"]
+assert not po["isti.hr"]["prihvacen"] and po["isti.hr"]["razlog"] == "isti trgovac kao već prihvaćena domena", po["isti.hr"]
+# Neobradiva datoteka vraća uzorak za dijagnozu.
+pokvaren = o.provjeri({"domena": "p.hr", "tip": "stalni", "url": "https://p.hr/x.xml", "format": "xml"},
+                      lambda url: b"<html><body>Prijava</body>", sada)
+assert not pokvaren["prihvacen"] and pokvaren.get("uzorak", "").startswith("<html>"), pokvaren
 print("DISCOVERY PASS: link + known-path discovery, validation, duplicate supplier, expired, too small, 403, robots.txt, "
+      "directory discovery of new domains, construction relevance, same-supplier dedup, parse diagnostics, "
       "inclusion, rerun without duplicates, failed source from last valid list, stale cache excluded, atomic publish")

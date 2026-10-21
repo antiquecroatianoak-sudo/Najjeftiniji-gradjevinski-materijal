@@ -1,6 +1,11 @@
 {
-  "napomena": "Polazne službene domene za automatsko otkrivanje (scripts/otkrivanje.py). Domenu dodaje čovjek nakon provjere identiteta trgovca; cjenik se uključuje tek kad prođe automatsku provjeru.",
+  "napomena": "Polazne službene domene i javni imenici cjenika za automatsko otkrivanje (scripts/otkrivanje.py). Domene iz imenika provjeravaju se automatski (cjenik, datum, ≥20 ponuda, građevinski asortiman).",
   "domene": [
+    {
+      "domena": "era-commerce.hr",
+      "naziv": "ERA-COMMERCE d.o.o. (Makarska)",
+      "izvor": "identitet: OIB 28609792467 (Fina, CompanyWall); trgovina građevinskog materijala, alata i opreme"
+    },
     {
       "domena": "gradja.hr",
       "naziv": "Građa.hr",
@@ -54,6 +59,12 @@
     {
       "domena": "bacelic.hr",
       "naziv": "Bačelić"
+    }
+  ],
+  "imenici": [
+    {
+      "url": "https://www.sidrocjenici.com/",
+      "napomena": "javni agregator sidrenih cijena i dnevnih cjenika (pretraga 21.10.2026.); nije provjeren iz razvojnog okruženja"
     }
   ]
 }
