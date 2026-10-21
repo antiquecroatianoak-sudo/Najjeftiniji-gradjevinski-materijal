@@ -20,3 +20,17 @@ s URL-om i datumom provjere.
 - Izvještaj: `site/data/revizija.json`.
 - Brojke uvoza po fazi su u `stanje-izvora.json`: primljeno, prihvaćeno, nedostupno, odbačeno (bez cijene), zastarjelo,
   duplikati, neusporedeno.
+
+## Run 36 (stvarni cjenik, 71 060 proizvoda)
+- **74 vrste**, s vezom roditelj → dijete unutar ovog popisa vrsta (boja → boja za zidove, fasadna boja, temeljni premaz;
+  ljepilo → ljepilo za pločice, za izolaciju; cijev → PVC cijev). Odabir roditelja uključuje potomke. To nije Njuškalova
+  hijerarhija.
+- **Razvrstano 16 420** (u runu 30 bilo je 2 611). Nerazvrstanih 54 640 ostaje u pretrazi kao „vrsta za provjeru“ i ne
+  proglašava se najpovoljnijim.
+- **Najčešće prve riječi nerazvrstanih** su JUB-ovi nazivi boja i fasada (jupol 18 132, jubizol 7 919, decor, jubin, takril,
+  acrylcolor…; uglavnom Bačelićeve nijanse). Te marke nisu pridružene vrsti jer to zahtijeva potvrdu proizvođača.
+- **Revizija:** nijedan razvrstan proizvod ne nestaje. Kombinirani filtri: 3 404 provjere (74 vrste × 46 kombinacija
+  trgovina) bez gubitka, viška ili dvostrukih ponuda. Referentni uzorak: 1 od 1 000 nerazvrstanih nije bio dohvatljiv
+  („List za pilu“ uz upit „list pilu“). Popravljeno: uz prepoznatu vrstu vraćaju se i nerazvrstani proizvodi sa svim
+  riječima upita.
+- **Njuškalo:** 403 za izbornike i robots.txt i u runu 36; hijerarhija prema Njuškalu nije ugrađena.

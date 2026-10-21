@@ -456,7 +456,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
         vrste.append(izvor.get("vrsta", "trgovina"))
         datumi_lanaca.append(zapis_stanja.get("datum", ""))
         primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = nedostupno = negradjevinsko = 0
-        spojeno_u_izvoru = barkod_druga_sifra = 0
+        spojeno_u_izvoru = barkod_druga_sifra = zasebne_varijante = 0
         sifre_barkoda: dict[str, str] = {}
         for s in stavke:
             primljeno += 1
@@ -546,10 +546,19 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
             if zapis is not None and (zapis["mjera"] != m or zapis["spec"] != spec):
                 kljuc = f"{kljuc}|{m[0] if m else ''}{m[1] if m else ''}|{spec}"
                 zapis = svi.get(kljuc)
+            # Isti ključ u istom cjeniku s drugim nazivom ili cijenom je varijanta (boja, veličina), ne isti artikl:
+            # spajaju se samo potpuno isti retci (isti naziv i cijena).
+            # (Pravi EAN/GTIN označava isti artikl i tada se zadržava niža cijena.)
+            if zapis is not None and idx in zapis["cijene"] and not valjan_barkod(kljuc.split("|")[0]) and (
+                    normaliziraj(zapis.get("naziv_" + str(idx), "")) != normaliziraj(naziv) or zapis["cijene"][idx] != cijena):
+                kljuc = f"{kljuc}|{normaliziraj(naziv)}|{cijena}"
+                zapis = svi.get(kljuc)
+                zasebne_varijante += 1
             if zapis is None:
                 zapis = svi[kljuc] = {"cijene": {}, "mjera": m, "spec": spec, "meta": meta, "najniza": None}
+            zapis.setdefault("naziv_" + str(idx), naziv)
             if idx in zapis["cijene"]:
-                spojeno_u_izvoru += 1  # isti proizvod (barkod/šifra, mjera, specifikacija) više puta u istom cjeniku
+                spojeno_u_izvoru += 1  # potpuno isti redak više puta u istom cjeniku
             if idx not in zapis["cijene"] or cijena < zapis["cijene"][idx]:
                 zapis["cijene"][idx] = cijena
             if zapis["najniza"] is None or cijena < zapis["najniza"]:
@@ -564,7 +573,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
         stanje.append({**zapis_stanja, "uspjeh": True, "primljeno": primljeno, "prihvaceno": prihvaceno,
                        "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata,
                        "neusporedeno": neuspordeno, "nedostupno": nedostupno, "spojeno_u_izvoru": spojeno_u_izvoru,
-                       "barkod_druga_sifra": barkod_druga_sifra,
+                       "barkod_druga_sifra": barkod_druga_sifra, "zasebne_varijante": zasebne_varijante,
                        **({"negradjevinsko": negradjevinsko} if izvor.get("samo_gradjevinski") else {}), "lanac": idx})
 
     proizvodi = []

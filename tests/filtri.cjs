@@ -20,6 +20,8 @@ const proizvodi = [
   P("Metalna pila 300 mm", 0, "", [4, 7.5]),
   P("Set kistova 3 kom", 0, "", [5, 4.2]),                                 // pribor/set: nerazvrstano
   P("Kist ravni 50 mm", 0, "", [6, 2.2]),
+  P("List kružne pile 210 mm", 0, "", [7, 9.9]),                           // razvrstano (list-pile)
+  P("List za pilu", 0, "", [8, 3.1]),                                      // nerazvrstano: riječi nisu uzastopne
 ];
 const lanciKojiImaju = (i) => new Set(proizvodi[i][5].filter((_, k) => k % 2 === 0));
 const app = ucitaj({ datum: "2026-10-21", lanci, vrsteIzvora: lanci.map(() => "trgovina"), proizvodi });
@@ -28,7 +30,7 @@ const kombinacije = [[[], null], ...lanci.map((l) => [lanci.filter((x) => x !== 
   ...lanci.map((l) => [[], l]), [["T1", "T4"], null], [["T1", "T2", "T3", "T4"], "T12"]];
 // Očekivanje je zapisano ručno (ne iz klasifikatora): koje proizvode upit mora moći prikazati.
 const ocekivano = { "cement": [0, 1, 2], "boja": [6, 7], "kobaltno svrdlo": [3], "matica": [4], "imbus ključ": [5],
-  "profil": [8, 9], "metalna pila": [10, 11], "kist": [12, 13] };
+  "profil": [8, 9], "metalna pila": [10, 11], "kist": [12, 13], "list pilu": [14, 15] };
 for (const [upit, indeksi] of Object.entries(ocekivano)) {
   for (const [iskljuceni, jedna] of kombinacije) {
     app.__filtar(iskljuceni, jedna);

@@ -306,4 +306,18 @@ assert sb[0]["spojeno_u_izvoru"] == 1 and sb[0]["barkod_druga_sifra"] == 1, sb
 assert sorted(p[5][1] for p in pb["proizvodi"] if p[0].startswith("LJESTVE")) == [30.6, 49.0], "two ladders stay two offers"
 assert u.valjan_barkod("0") == "" and u.valjan_barkod("0000000000000") == "" and u.valjan_barkod("123") == ""
 assert u.valjan_barkod(" 3850000000017 ") == "3850000000017" and u.valjan_barkod("40123456") == "40123456"
-print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source, counts by stage, mixed store, cache after bad 200, empty listing, placeholder barcode 0, same barcode other code")
+# Stvarni nalaz (Veker/ARKOR, run 36): ista šifra bez barkoda za različite boje/veličine (Škare PROLINE 31,99/46,99/64,99 €)
+# nisu jedan artikl; potpuno isti redak (isti naziv i cijena) se spaja.
+VEK = ('<cjenik generated="2026-10-21T05:00:00+00:00">'
+       + "".join(f"<proizvod><naziv>{n}</naziv><sifra>{s}</sifra><maloprodajna_cijena>{c}</maloprodajna_cijena></proizvod>"
+                 for n, s, c in [("Škare PROLINE za rezanje betonskog željeza", "03020059", "31.99"),
+                                 ("Škare PROLINE za rezanje betonskog željeza", "03020059", "46.99"),
+                                 ("Pokrivna boja JUBIN DECOR – Crna, 0,65L", "02040008", "10.99"),
+                                 ("Pokrivna boja JUBIN DECOR – Crvena, 0,65L", "02040008", "10.99"),
+                                 ("Brusna spužva POLAX", "37430021", "1.79"), ("Brusna spužva POLAX", "37430021", "1.79")])
+       + "</cjenik>")
+pv, sv = u.obradi([{"id": "vek", "naziv": "Veker", "format": "xml"}], lambda i: VEK, sada)
+assert len(pv["proizvodi"]) == 5, [p[0] for p in pv["proizvodi"]]
+assert sv[0]["spojeno_u_izvoru"] == 1 and sv[0]["zasebne_varijante"] == 2, sv
+assert sorted(p[5][1] for p in pv["proizvodi"] if p[0].startswith("Škare")) == [31.99, 46.99]
+print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source, counts by stage, mixed store, cache after bad 200, empty listing, placeholder barcode 0, same barcode other code, variants under one code")

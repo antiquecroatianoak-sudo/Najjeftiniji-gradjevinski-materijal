@@ -29,6 +29,34 @@ CSV/XML. Imenik sidrocjenici.com (119 KB, 69 poveznica, 0 vanjskih, 23 podstrani
 vasatrgovina.hr, primjer.hr, azop.hr) — nijedna nema cjenik; popis trgovaca u imeniku nije dostupan u HTML-u.
 **Cilj od najmanje 11 različitih trgovaca nije postignut (8).**
 
+## Stvarno pokretanje run 36 (commit 2fcac48, kod do 00cab7d, 21.10.2026., grana bez objave)
+https://github.com/antiquecroatianoak-sudo/Najjeftiniji-gradjevinski-materijal/actions/runs/39632787720
+
+**13 različitih trgovaca:** 8 sa službenim CSV/XML cjenikom (Bačelić, Top Alati, Veker, TERMO-METAL, Gavroprom, Profi
+baucentar, Telack, Građevinska apoteka, ARKOR; ARKOR i Bačelić otkriveni automatski) i 5 iz pilota sa stranica proizvoda.
+Ukupno 15 izvora, 71 060 jedinstvenih proizvoda. Brojke: ulaznih redaka 343 527, prihvaćenih 71 112, spojeno u izvoru 42,
+ponuda proizvod×izvor 71 070.
+
+**Pilot webshopova (schema.org Product/Offer, 25 stranica po trgovcu po pokretanju):**
+
+| Trgovac | Ponuda | Potpune (rangiraju se) | Napomena |
+|---|---|---|---|
+| Građa.hr (gradja.hr) | 18 | 18 po podacima ponude; 3 s prepoznatom količinom | PDV uključen (schema.org) |
+| MC PLUS (mc-plus.hr) | 18 | 18; 10 s prepoznatom količinom | PDV iz teksta stranice; 5 nedostupnih isključeno |
+| ERA-COMMERCE (era-commerce.hr) | 25 | 0 | PDV nije naveden → vidljivo, ne rangira se |
+| Frida Mijić (frida-mijic.hr) | 3 | 0 | PDV nije naveden; 5 stranica nedohvatljivo |
+| Consortium (consortium.hr) | 7 | 0 | raspon cijena (varijante); među njima i testni proizvodi trgovca („test“) |
+| Merkury, Fero-Term, Drvona, Petrokov, Akord | 0 | — | stranice bez schema.org ponude u EUR |
+| IKOMA, Bit Promet, Gradnja invest | 0 | — | sitemap sa stranicama proizvoda nije pronađen |
+
+Ponude iz pilota imaju vrijeme provjere, ne datum objave. Na glavnoj grani pilot nije uključen dok se ne pregleda.
+
+**Spajanje redaka (stvarni sirovi uzorak):** Bačelić je imao 36 454 retka s barkodom „0“ spojena u jedan proizvod, popravljeno
+u bafd7c2; u runu 36 Bačelić ima 0 spojenih i 46 967 ponuda. Veker i ARKOR imaju istu šifru za različite boje ili veličine
+(npr. „Škare PROLINE“ 31,99/46,99/64,99/88,99 €; DASSY kombinezon s i bez marke po različitoj cijeni). Od commita nakon
+run 36 takvi retci ostaju zasebne ponude; spajaju se samo potpuno isti retci (isti naziv i cijena). Isti pravi EAN i dalje
+označava isti artikl.
+
 ## Izvještaj po trgovcu — run 27 (commit 56333cb, 21.10.2026., grana bez objave)
 https://github.com/antiquecroatianoak-sudo/Najjeftiniji-gradjevinski-materijal/actions/runs/39593507440 —
 **9 različitih trgovaca, 11 izvora, 35 794 jedinstvenih proizvoda (ne ponuda; vidi „Brojke”)**, svi cjenici od 2026-10-21. Cijene su u EUR s PDV-om (maloprodajne,

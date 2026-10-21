@@ -129,7 +129,14 @@ function pogoci(grupa) {
   if (klasifikacija) {
     const prepoznati = klasifikacija.pogoci(grupa);
     if (prepoznati !== null) {
-      const rezultat = [...prepoznati, ...klasifikacija.moguciPogoci(grupa)];
+      // Uz razvrstane i moguće članove i nerazvrstani proizvodi sa svim riječima upita, da nijedan ne nestane
+      // (revizija run 36: „List za pilu“ za upit „list pilu“). Oni su „vrsta za provjeru“ i ne rangiraju se.
+      const vidjeno = new Set([...prepoznati, ...klasifikacija.moguciPogoci(grupa)]);
+      const korijeniUpita = normaliziraj(grupa).split(" ").filter((w) => w && !PRIJEDLOZI.has(w)).map(korijen);
+      const tekstom = korijeniUpita.length
+        ? trazi(korijeniUpita, (w, k) => w.startsWith(k) && NASTAVCI.has(w.slice(k.length))).filter((i) => !klasifikacija.vrstaProizvoda(i))
+        : [];
+      const rezultat = [...vidjeno, ...tekstom.filter((i) => !vidjeno.has(i))];
       pogociCache.set(grupa, rezultat);
       return rezultat;
     }
