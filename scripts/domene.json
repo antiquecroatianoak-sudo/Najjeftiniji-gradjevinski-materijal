@@ -59,12 +59,55 @@
     {
       "domena": "bacelic.hr",
       "naziv": "Bačelić"
+    },
+    {
+      "domena": "frida-mijic.hr",
+      "naziv": "Frida Mijić",
+      "izvor": "ChatGPT/vlasnik, Google pretraga 21.10.2026."
+    },
+    {
+      "domena": "consortium.hr",
+      "naziv": "Consortium",
+      "izvor": "ChatGPT/vlasnik, Google pretraga 21.10.2026."
+    },
+    {
+      "domena": "bitpromet.hr",
+      "naziv": "Bit Promet",
+      "izvor": "ChatGPT/vlasnik: bitpromet.hr/katalog/"
+    },
+    {
+      "domena": "drvona.hr",
+      "naziv": "Drvona",
+      "izvor": "ChatGPT/vlasnik: drvona.hr/proizvodi/ (drvo, ploče, oplata)"
+    },
+    {
+      "domena": "merkury.hr",
+      "naziv": "Merkury",
+      "izvor": "ChatGPT/vlasnik: merkury.hr/mort/, /zbuka/"
+    },
+    {
+      "domena": "mc-plus.hr",
+      "naziv": "MC PLUS",
+      "izvor": "ChatGPT/vlasnik"
+    },
+    {
+      "domena": "arkor.hr",
+      "naziv": "ARKOR",
+      "izvor": "ChatGPT/vlasnik: arkor.hr/shop/P576"
     }
   ],
   "imenici": [
     {
       "url": "https://www.sidrocjenici.com/",
       "napomena": "javni agregator sidrenih cijena i dnevnih cjenika (pretraga 21.10.2026.); nije provjeren iz razvojnog okruženja"
+    },
+    {
+      "url": "https://www.ecroatia.info/gradevinski-materijali-grad-zagreb/147",
+      "napomena": "poslovni imenik (ChatGPT/vlasnik 21.10.2026.): samo otkrivanje, ne izvor cijena"
+    },
+    {
+      "url": "https://www.gradim.hr/",
+      "napomena": "agregator (ChatGPT/vlasnik 21.10.2026.): samo trag do izvornih trgovaca"
     }
   ]
 }

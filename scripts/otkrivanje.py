@@ -37,6 +37,7 @@ RE_POVEZNICA = re.compile(r"""href\s*=\s*(?:"([^"]+)"|'([^']+)'|([^"'\s>]+))""",
 RE_STRANICA_CJENIKA = re.compile(r"cjeni|sidren|prices?-list|price-list", re.I)
 RE_TEKST_CJENIKA = re.compile(r"cjeni|sidren|objava cijena|popis cijena|price list", re.I)
 RE_DOMENA_U_TEKSTU = re.compile(r"(?<![\w@.-])(?:https?:\\?/\\?/)?(?:www\.)?((?:[a-z0-9-]+\.)+hr)(?![\w-])", re.I)
+RE_WEBSHOP = re.compile(r'itemprop=["\']price|"@type"\s*:\s*"Product"|woocommerce|add-to-cart|dodaj u košaricu|u košaricu', re.I)
 RE_NIJE_CJENIK = re.compile(r"sitemap|feed|rss|wp-json|oembed", re.I)
 # Kandidat mora imati barem toliko valjanih ponuda da bi se smatrao pravim cjenikom.
 NAJMANJE_PONUDA = 20
@@ -277,14 +278,22 @@ def run(trgovci: list[dict], dohvati, smije, sada: datetime | None = None) -> li
     """Za svakog trgovca: otkrij cjenike, provjeri ih i zadrži najbolji. Novi iz imenika moraju biti građevinski."""
     rezultat = []
     for trgovac in trgovci:
+        html, dostupna = "", False
         try:
             html = uvoz.dekodiraj(dohvati(f"https://{trgovac['domena']}/")) if smije(f"https://{trgovac['domena']}/") else ""
+            dostupna = True
             trgovac = {**trgovac, "naslov": naslov(html)}
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as e:  # noqa: BLE001
+            trgovac = {**trgovac, "naslovna": str(e)[:120]}
         nadjeni = otkrij(trgovac["pocetna"], dohvati, smije)
         if not nadjeni:
-            rezultat.append({**trgovac, "prihvacen": False, "razlog": "cjenik nije pronađen ili je pristup odbijen"})
+            if not dostupna:
+                razlog = f"naslovna nedostupna ({trgovac['naslovna']})"
+            elif RE_WEBSHOP.search(html):
+                razlog = "cijene samo na HTML stranicama webshopa; strojno čitljiv cjenik (CSV/XML) nije pronađen"
+            else:
+                razlog = "cjenik nije pronađen"
+            rezultat.append({**trgovac, "prihvacen": False, "razlog": razlog})
             continue
         provjere = [provjeri(k, dohvati, sada, gradjevinski=bool(trgovac.get("izvor"))) for k in nadjeni]
         najbolji = next((p for p in provjere if p["prihvacen"]), provjere[0])
@@ -344,7 +353,8 @@ def main():
     prihvaceni = [r for r in rezultat if r.get("prihvacen")]
     print(f"Otkrivanje: {len(rezultat)} trgovaca provjereno, {len(prihvaceni)} s valjanim cjenikom")
     for r in rezultat:
-        print(("OK " if r.get("prihvacen") else "-- ") + f"{r['domena']}" + (f" [{r['izvor']}]" if r.get("izvor") else "") + ": " + (
+        print(("OK " if r.get("prihvacen") else "-- ") + f"{r['domena']}" + (f" [{r['izvor']}]" if r.get("izvor") else "")
+              + (f" «{r['naslov'][:60]}»" if r.get("naslov") else "") + ": " + (
             f"{r.get('prihvaceno')} ponuda, cjenik od {r.get('datum')}, {r.get('url') or r.get('stranica')}" if r.get("prihvacen")
             else r.get("razlog", "")) + (f" | uzorak: {r['uzorak'][:160]}" if r.get("uzorak") else ""))
     for i in pregled_imenika:
