@@ -48,7 +48,7 @@
       "format": "csv",
       "stranica": "https://www.bacelic.hr/cjenik/",
       "url": null,
-      "status": "neprovjereno",
+      "status": "blokirano",
       "omogucen": false,
       "napomena": "Stranica bacelic.hr/cjenik navodi CSV/XML, ali je i ChatGPT-ov dohvat dobio 403 (21.10.2026.); pristup se ne zaobilazi."
     },
