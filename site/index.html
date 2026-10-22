@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="hr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1d2b3e">
+  <meta name="description" content="Reci što trebaš za gradnju, odaberi trgovine i oglasnike i usporedi cijene po m², m³, kg ili komadu.">
+  <title>Najjeftiniji građevinski materijal</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="ikona.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="ikona-192.png">
+  <link rel="stylesheet" href="stil.css">
+</head>
+<body>
+  <a class="preskoci" href="#unos">Dodaj na popis</a>
+  <header class="zaglavlje">
+    <a class="brend" href="./"><span class="brend-ikona" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20h18M4 20V9h16v11M4 14.5h16M9 9v5.5m6 0V20M12 4l8 5H4z" stroke-linejoin="round"/></svg></span>Najjeftiniji građevinski materijal</a>
+    <span class="brend-opis">Nabava po najnižoj usporedivoj cijeni</span>
+  </header>
+  <main id="glavni-sadrzaj">
+    <section class="popis-panel" aria-labelledby="naslov-popisa">
+      <div class="naslov-sekcije">
+        <div><span class="mali-naslov">NABAVA MATERIJALA</span><h1 id="naslov-popisa">Popis materijala</h1></div>
+        <span id="broj-stavki" class="oznaka">0 stavki</span>
+      </div>
+      <div class="dodavanje">
+        <button id="mikrofon" type="button" class="glasovni-gumb">
+          <span class="mikrofon-krug" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8" stroke-linecap="round"/></svg></span>
+          <span id="mikrofon-tekst">Izgovori jedan artikl</span>
+        </button>
+        <form id="rucni-unos" class="rucni-unos">
+          <label for="unos">Ili upiši materijal i količinu</label>
+          <div class="unos-red"><input id="unos" type="text" placeholder="Npr. 20 m2 laminata, 3 vreće cementa…" autocomplete="off" enterkeyhint="done" maxlength="500"><button type="submit" class="dodaj-gumb">+ Dodaj</button></div>
+        </form>
+      </div>
+      <p id="glasovni-nacrt" class="glasovni-nacrt" role="status" hidden></p>
+      <section class="trgovine-panel" aria-labelledby="trgovine-naslov">
+        <div class="trgovine-zaglavlje"><div><h2 id="trgovine-naslov">Trgovine i oglasnici</h2><p id="lanci-info" class="sitno">Učitavam trgovine…</p></div><div class="lanci-gumbi"><button id="lanci-sve" type="button">Sve</button><button id="lanci-nista" type="button">Nijedna</button></div></div>
+        <div id="lanci" class="lanci" role="group" aria-label="Odaberi trgovine za usporedbu" tabindex="0"></div>
+      </section>
+      <div class="popis-zaglavlje"><h2>Stavke nabave</h2><p id="napredak" role="status"></p></div>
+      <div id="prazno" class="prazno"><svg class="prazno-crtez" aria-hidden="true" viewBox="0 0 240 70" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M40 60h160M60 60V34h40v26M110 60V20h46v40M166 60V42h24v18"/><path d="M118 30h30m-30 10h30m-30 10h30"/></svg><h3>Dodaj prvu stavku nabave</h3></div>
+      <div id="samo-trgovina" class="samo-trgovina" hidden><span>Sve iz trgovine <strong id="samo-trgovina-naziv"></strong></span><button id="samo-trgovina-makni" type="button">Sve trgovine</button></div>
+      <ul id="kartice" class="kartice" aria-label="Stavke nabave s ponudama"></ul>
+      <div class="sazetak" aria-live="polite">
+        <div class="ukupno"><span id="ukupno-oznaka">Ukupno za popis</span><strong id="ukupno">0,00 €</strong></div>
+        <p id="nedostaje" class="upozorenje" hidden></p>
+        <div id="preostalo" class="preostalo" hidden>Još za kupiti: <strong id="preostalo-iznos"></strong></div>
+        <div id="po-trgovinama" class="po-trgovinama"></div>
+        <p class="napomena-dostava">Dostava nije uključena u iznos.</p>
+      </div>
+      <section id="jedna-trgovina" class="jedna-trgovina" aria-labelledby="jedna-naslov" hidden>
+        <h2 id="jedna-naslov">Sve u jednom dućanu</h2>
+        <p id="kombinacija" class="kombinacija"></p>
+        <p id="usporedne-kolicine" class="savjet"></p>
+        <p id="nema-potpune" class="upozorenje" hidden>Nijedna trgovina nema sve stavke s usporedivom ponudom: cijeli popis nije moguće kupiti u jednom dućanu.</p>
+        <ul id="trgovine-usporedba" class="trgovine-usporedba" aria-label="Trgovine sa svim stavkama, od najjeftinije"></ul>
+        <h3 id="nepotpune-naslov" class="nepotpune-naslov" hidden>Nepotpuno: trgovine bez svih stavki</h3>
+        <ul id="trgovine-nepotpune" class="trgovine-usporedba" aria-label="Trgovine bez svih stavki"></ul>
+        <p class="savjet">Dostavu nude i obavljaju same trgovine; njihovi uvjeti i cijena dostave nisu potvrđeni u podacima pa nisu uključeni u iznose.</p>
+      </section>
+    </section>
+    <footer>
+      <div class="stanje-podataka"><p id="status" role="status">Učitavam cijene…</p><button id="ponovi" type="button" hidden>Pokušaj ponovno</button></div>
+      <details class="pomoc"><summary>Kako uspoređujemo cijene?</summary><p>Poredak je po jediničnoj cijeni (m², m³, m, kg, l ili kom), samo među proizvodima iste specifikacije. Oglasi bez potpunih podataka nisu uspoređeni. Prikazana je najniža cijena unutar trgovine; dostava nije uključena.</p></details>
+    </footer>
+  </main>
+  <script src="skupine.js"></script>
+  <script src="aplikacija.js"></script>
+</body>
+</html>
+
+

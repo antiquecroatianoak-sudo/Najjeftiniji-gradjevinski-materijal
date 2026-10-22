@@ -1,0 +1,185 @@
+name: Dnevno ažuriranje cijena
+
+on:
+  schedule:
+    - cron: "37 7 * * *"   # nakon što trgovci objave cjenike (najkasnije do 8:00 po hrvatskom vremenu)
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  azuriraj-i-objavi:
+    # Objavljuje se samo glavna grana repozitorija.
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    environment:
+      name: github-pages
+      url: ${{ steps.objava.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Provjeri aplikaciju i uvoz
+        run: |
+          python tests/uvoz.py
+          python tests/otkrivanje.py
+          python tests/webshop.py
+          node tests/skupine.cjs
+          node tests/kosarica.cjs
+          node tests/glasovni-unos.cjs
+          node tests/filtri.cjs
+          node tests/sve-u-jednom.cjs
+
+      # Zadnji valjani cjenik svakog izvora, za dan kad izvor ne radi (starost se provjerava pri uvozu).
+      - uses: actions/cache/restore@v4
+        with:
+          path: .predmemorija
+          key: cjenici-${{ github.run_id }}
+          restore-keys: cjenici-
+
+      - name: Otkrij nove javne cjenike
+        # Greška otkrivanja ne zaustavlja uvoz već uključenih izvora.
+        continue-on-error: true
+        timeout-minutes: 40
+        run: python scripts/otkrivanje.py
+
+      - name: Cijene sa stranica proizvoda (schema.org; robots.txt, bez zaobilaženja zaštite)
+        # Greška ili vremensko ograničenje ne zaustavlja uvoz službenih cjenika; spremljeno je stanje nakon svakog trgovca.
+        continue-on-error: true
+        timeout-minutes: 30
+        run: python -u scripts/webshop.py
+
+      - name: Preuzmi cjenike provjerenih izvora
+        id: uvoz
+        timeout-minutes: 20
+        run: |
+          python scripts/uvoz.py --otkriveni site/data/otkriveni.json --webshop site/data/webshop.json
+          if [ -f site/data/proizvodi.json ]; then echo "ima=da" >> "$GITHUB_OUTPUT"; else echo "::notice::Nema valjanih cjenika; objava je preskočena."; fi
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .predmemorija
+          key: cjenici-${{ github.run_id }}
+
+      - name: Pripremi skupine za novi cjenik
+        if: steps.uvoz.outputs.ima == 'da'
+        run: node scripts/razvrstaj.cjs
+
+      # Potvrđen gubitak, višak ili dvostruka ponuda u reviziji zaustavlja objavu (bez continue-on-error).
+      - name: Revizija klasifikacije i pretrage (uvjet za objavu)
+        if: steps.uvoz.outputs.ima == 'da'
+        run: node scripts/revizija.cjs
+
+      - uses: actions/configure-pages@v5
+        if: steps.uvoz.outputs.ima == 'da'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.uvoz.outputs.ima == 'da'
+        with:
+          path: site
+
+      - name: Objavi aplikaciju
+        if: steps.uvoz.outputs.ima == 'da'
+        id: objava
+        uses: actions/deploy-pages@v4
+
+  # Na radnim granama: stvarno otkrivanje i uvoz za provjeru, bez objave. Rezultat je artefakt "provjera-izvora".
+  provjera-izvora:
+    if: github.ref_name != github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Testovi
+        run: |
+          python tests/uvoz.py
+          python tests/otkrivanje.py
+          python tests/webshop.py
+          node tests/skupine.cjs
+          node tests/kosarica.cjs
+          node tests/glasovni-unos.cjs
+          node tests/filtri.cjs
+          node tests/sve-u-jednom.cjs
+      - name: Izbornik kategorija Njuškala (samo kategorije, bez oglasa)
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python scripts/kategorije_njuskalo.py
+      - name: Otkrij nove javne cjenike
+        continue-on-error: true
+        timeout-minutes: 40
+        run: python scripts/otkrivanje.py
+      - name: Pilot cijena sa stranica proizvoda (schema.org, samo radna grana)
+        continue-on-error: true
+        timeout-minutes: 30
+        run: python -u scripts/webshop.py
+      - name: Uvezi provjerene izvore (bez objave)
+        timeout-minutes: 20
+        run: |
+          python scripts/uvoz.py --otkriveni site/data/otkriveni.json --webshop site/data/webshop.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          st = json.loads(Path("site/data/stanje-izvora.json").read_text())
+          ok = [s for s in st["uvezeno"] if s["uspjeh"]]
+          print(f"Uspješnih izvora: {len(ok)} od {len(st['uvezeno'])}")
+          for s in st["uvezeno"]:
+              print(("OK " if s["uspjeh"] else "-- ") + json.dumps({k: s.get(k) for k in ("naziv", "url", "datum", "primljeno", "prihvaceno", "spojeno_u_izvoru", "ponuda_u_aplikaciji", "nedostupno", "odbaceno", "negradjevinsko", "proturjecna_jedinicna", "primjeri_proturjecnih", "osnova_kolicine", "nepoznati_stupci", "iz_predmemorije", "danasnja_greska", "greska") if s.get(k) is not None}, ensure_ascii=False))
+          print("Brojke: " + json.dumps(st["brojke"], ensure_ascii=False))
+          from collections import Counter
+          osnova = sum((Counter(s.get("osnova_kolicine", {})) for s in ok), Counter())
+          print("Osnova količine svih ponuda iz cjenika (p potvrđeno jediničnom, c iz polja cjenika, j iz jedinične, "
+                "n samo naziv - ne rangira se, x proturječno - ne rangira se, - bez količine): " + json.dumps(dict(osnova), ensure_ascii=False))
+          p = Path("site/data/proizvodi.json")
+          if p.exists():
+              d = json.loads(p.read_text())
+              print(f"Jedinstvenih proizvoda: {len(d['proizvodi'])}, izvora: {len(d['lanci'])}, datum: {d['datum']}")
+          PY
+      - name: Sirovi uzorak spojenih redaka (dijagnoza)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: python scripts/uzorak_spajanja.py
+      - name: Razvrstavanje uvezenog skupa (isto kao na glavnoj grani)
+        run: |
+          if [ -f site/data/proizvodi.json ]; then node scripts/razvrstaj.cjs; else echo "Nema uvezenog skupa"; fi
+      - name: Revizija klasifikacije i pretrage na stvarnom cjeniku
+        continue-on-error: true
+        run: |
+          if [ -f site/data/proizvodi.json ]; then node scripts/revizija.cjs; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: provjera-izvora
+          path: |
+            site/data/stanje-izvora.json
+            site/data/otkriveni.json
+            site/data/njuskalo-kategorije.json
+            site/data/revizija.json
+            site/data/skupine.json
+            site/data/webshop.json
+            site/data/uzorak-spajanja.json
+          if-no-files-found: ignore

@@ -1,0 +1,8 @@
+# Ove datoteke svaki dan napravi GitHub automatski - ne spremaju se ovdje.
+site/data/proizvodi.json
+__pycache__/
+
+site/data/skupine.json
+site/data/stanje-izvora.json
+.predmemorija/
+site/data/otkriveni.json

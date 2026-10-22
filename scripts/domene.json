@@ -1,0 +1,114 @@
+{
+  "napomena": "Polazne službene domene i javni imenici cjenika za automatsko otkrivanje (scripts/otkrivanje.py). Domene iz imenika provjeravaju se automatski (cjenik, datum, ≥20 ponuda, građevinski asortiman).",
+  "domene": [
+    {
+      "domena": "era-commerce.hr",
+      "naziv": "ERA-COMMERCE d.o.o. (Makarska)",
+      "izvor": "identitet: OIB 28609792467 (Fina, CompanyWall); trgovina građevinskog materijala, alata i opreme",
+      "oib": "28609792467"
+    },
+    {
+      "domena": "gradja.hr",
+      "naziv": "Građa.hr",
+      "izvor": "web pretraga 21.10.2026., trgovina građevinskog materijala"
+    },
+    {
+      "domena": "unikomerc-uvoz.hr",
+      "naziv": "Unikomerc uvoz",
+      "izvor": "web pretraga 21.10.2026.; asortiman treba potvrditi"
+    },
+    {
+      "domena": "ikoma.hr",
+      "naziv": "IKOMA"
+    },
+    {
+      "domena": "fero-term.hr",
+      "naziv": "Fero-Term"
+    },
+    {
+      "domena": "petrokov.hr",
+      "naziv": "Petrokov"
+    },
+    {
+      "domena": "akord-zupanja.hr",
+      "naziv": "Akord Županja"
+    },
+    {
+      "domena": "katalog.gradnjainvest.hr",
+      "naziv": "Gradnja invest"
+    },
+    {
+      "domena": "mirakul-inovativna-grijanja.hr",
+      "naziv": "Mirakul inovativna grijanja"
+    },
+    {
+      "domena": "termometal.hr",
+      "naziv": "Termometal (Garešnica)"
+    },
+    {
+      "domena": "vijci.com",
+      "naziv": "Vijci (Kralj commerce)"
+    },
+    {
+      "domena": "pevex.hr",
+      "naziv": "Pevex"
+    },
+    {
+      "domena": "bauhaus.hr",
+      "naziv": "Bauhaus"
+    },
+    {
+      "domena": "bacelic.hr",
+      "naziv": "Bačelić"
+    },
+    {
+      "domena": "frida-mijic.hr",
+      "naziv": "Frida Mijić",
+      "izvor": "ChatGPT/vlasnik, Google pretraga 21.10.2026."
+    },
+    {
+      "domena": "consortium.hr",
+      "naziv": "Consortium",
+      "izvor": "ChatGPT/vlasnik, Google pretraga 21.10.2026."
+    },
+    {
+      "domena": "bitpromet.hr",
+      "naziv": "Bit Promet",
+      "izvor": "ChatGPT/vlasnik: bitpromet.hr/katalog/"
+    },
+    {
+      "domena": "drvona.hr",
+      "naziv": "Drvona",
+      "izvor": "ChatGPT/vlasnik: drvona.hr/proizvodi/ (drvo, ploče, oplata)"
+    },
+    {
+      "domena": "merkury.hr",
+      "naziv": "Merkury",
+      "izvor": "ChatGPT/vlasnik: merkury.hr/mort/, /zbuka/"
+    },
+    {
+      "domena": "mc-plus.hr",
+      "naziv": "MC PLUS",
+      "izvor": "ChatGPT/vlasnik"
+    },
+    {
+      "domena": "arkor.hr",
+      "naziv": "ARKOR",
+      "izvor": "ChatGPT/vlasnik: arkor.hr/shop/P576"
+    }
+  ],
+  "imenici": [
+    {
+      "url": "https://www.sidrocjenici.com/",
+      "napomena": "javni agregator sidrenih cijena i dnevnih cjenika (pretraga 21.10.2026.); nije provjeren iz razvojnog okruženja"
+    },
+    {
+      "url": "https://www.ecroatia.info/gradevinski-materijali-grad-zagreb/147",
+      "napomena": "poslovni imenik (ChatGPT/vlasnik 21.10.2026.): samo otkrivanje, ne izvor cijena"
+    },
+    {
+      "url": "https://www.gradim.hr/",
+      "napomena": "agregator (ChatGPT/vlasnik 21.10.2026.): samo trag do izvornih trgovaca"
+    }
+  ]
+}

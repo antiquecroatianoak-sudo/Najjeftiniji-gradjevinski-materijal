@@ -1,0 +1,261 @@
+{
+  "napomena": "Uvoze se samo izvori sa \"status\": \"provjereno\" i \"omogucen\": true. Status mijenja čovjek nakon provjere URL-a, formata i uvjeta korištenja (docs/izvori.md).",
+  "izvori": [
+    {
+      "id": "bauhaus",
+      "naziv": "Bauhaus",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "blokirano",
+      "omogucen": false,
+      "napomena": "Dohvat vraća 403 (ChatGPT, 21.10.2026.) i blokiran je iz ovog okruženja. Javni cjenik obvezan od 1.10.2026. (NN 101/2026)."
+    },
+    {
+      "id": "pevex",
+      "naziv": "Pevex",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": "https://www.pevex.hr/Documents/cjenici/store-3/aktualni.csv",
+      "status": "blokirano",
+      "omogucen": false,
+      "napomena": "Službena stranica sidrene-cijene (aktualno 21.10.2026.) vodi na store-3/aktualni.csv; izravni dohvat vraća 403 i ChatGPT-u i ovom okruženju. Datum nije u nazivu datoteke.",
+      "stranica": "https://www.pevex.hr/sidrene-cijene"
+    },
+    {
+      "id": "ikoma",
+      "naziv": "IKOMA",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Navedena stranica je prazan rezultat pretrage, nije cjenik (ChatGPT, 21.10.2026.). Cjenik nije pronađen.",
+      "stranica": "https://www.ikoma.hr/hr/cijene/cjenik-3095/"
+    },
+    {
+      "id": "profi-baucentar",
+      "naziv": "Profi baucentar",
+      "vrsta": "trgovina",
+      "format": "xml",
+      "url": "https://profibaucentar.hr/sidrena-cijena.xml",
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Javni XML pronađen 21.10.2026.; stvarni uvoz (ChatGPT, e7df3c9): 2017 primljeno, 1543 prihvaćeno, 474 nedostupno; datum iz atributa generated.",
+      "stranica": "https://profibaucentar.hr/"
+    },
+    {
+      "id": "bacelic",
+      "naziv": "Bačelić",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://www.bacelic.hr/cjenik/",
+      "url": null,
+      "status": "blokirano",
+      "omogucen": false,
+      "napomena": "Stranica bacelic.hr/cjenik navodi CSV/XML, ali je i ChatGPT-ov dohvat dobio 403 (21.10.2026.); pristup se ne zaobilazi."
+    },
+    {
+      "id": "gavroprom",
+      "naziv": "Gavroprom",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://www.gavroprom.hr/cjenik",
+      "url": null,
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom cijele datoteke (ChatGPT, verzija 44655df): 3633 primljeno, 2129 prihvaćeno, 1504 nedostupno; datum 2026-10-21 iz naziva datoteke. Čitač stranice uzima najnoviji CSV po poslovnici.",
+      "popis": true
+    },
+    {
+      "id": "top-alati",
+      "naziv": "Top Alati",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://top-alati.hr/prices-list",
+      "popis": true,
+      "url": null,
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom cijele datoteke poslovnice Varaždin (ChatGPT, 44655df): 16834 primljeno, 2605 prihvaćeno, 14229 nedostupno. Ostale poslovnice imaju isti oblik; svaka je zaseban izvor istog trgovca."
+    },
+    {
+      "id": "veker",
+      "naziv": "Veker",
+      "vrsta": "trgovina",
+      "format": "xml",
+      "stranica": "https://www.veker.hr/cjenici/",
+      "popis": false,
+      "url": "https://www.veker.hr/wp-content/uploads/cjenici-webshop/cjenik.xml",
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom cijelog XML-a (ChatGPT, 44655df): 3791 primljeno, 3712 prihvaćeno, 79 nedostupno. Datum iz <cjenik generirano>, ne iz referentni_datum."
+    },
+    {
+      "id": "vijci",
+      "naziv": "Vijci (Kralj commerce)",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://www.vijci.com/cjenik",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Dohvat vraća 503 (ChatGPT, 21.10.2026.). Identitet trgovca nije provjeren iz ovog okruženja."
+    },
+    {
+      "id": "arkor",
+      "naziv": "Arkor",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "blokirano",
+      "omogucen": false,
+      "napomena": "Dohvat vraća 403 (ChatGPT, 21.10.2026.). Službeni URL cjenika nije potvrđen."
+    },
+    {
+      "id": "fero-term",
+      "naziv": "Fero-Term",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Službena stranica dostupna (ChatGPT: 200). Cjenik još nije pronađen.",
+      "stranica": "https://www.fero-term.hr/"
+    },
+    {
+      "id": "petrokov",
+      "naziv": "Petrokov",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Službena stranica dostupna (ChatGPT: 200). Cjenik još nije pronađen.",
+      "stranica": "https://petrokov.hr/"
+    },
+    {
+      "id": "termo-metal-pakrac",
+      "naziv": "TERMO-METAL (Pakrac)",
+      "vrsta": "trgovina",
+      "format": "xml",
+      "stranica": "https://termo-metal.hr/home/cjenik/",
+      "popis": true,
+      "url": null,
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom cijelog XML-a (ChatGPT, e7df3c9): 3381 primljeno, 3115 prihvaćeno, 266 nedostupno; datum iz naziva datoteke."
+    },
+    {
+      "id": "termometal",
+      "naziv": "Termometal (Garešnica)",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Termometal.hr iz Garešnice — drugi trgovac od TERMO-METAL Pakrac. Cjenik nije pronađen.",
+      "stranica": "https://termometal.hr/"
+    },
+    {
+      "id": "akord-zupanja",
+      "naziv": "Akord Županja",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://www.akord-zupanja.hr/cjenik/",
+      "popis": true,
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Službena stranica cjenika (ChatGPT, 21.10.2026.). Datoteke i stupci još nisu viđeni."
+    },
+    {
+      "id": "gradjevinska-apoteka",
+      "naziv": "Građevinska apoteka",
+      "vrsta": "trgovina",
+      "format": "xml",
+      "stranica": "https://gradjevinska-apoteka.hr/sidrene-cijene/",
+      "url": "https://gradjevinska-apoteka.hr/sidrena-cijena.xml",
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom stalnog XML-a (ChatGPT, e7df3c9): 292 proizvoda, 289 s cijenom, 286 prihvaćeno, 3 nedostupno; datum iz atributa generated (UTC, pretvoren u zagrebački datum).",
+      "popis": false
+    },
+    {
+      "id": "gradnjainvest",
+      "naziv": "Gradnja invest",
+      "vrsta": "trgovina",
+      "format": "csv",
+      "stranica": "https://katalog.gradnjainvest.hr/",
+      "popis": true,
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "CSV poveznica u podnožju kataloga (ChatGPT, 21.10.2026.). Datoteka još nije viđena."
+    },
+    {
+      "id": "telack",
+      "naziv": "Telack",
+      "vrsta": "trgovina",
+      "format": "xml",
+      "stranica": "https://telack.shop/",
+      "popis": false,
+      "url": "https://telack.shop/cjenik/cjenik-webshop.xml",
+      "status": "provjereno",
+      "omogucen": true,
+      "napomena": "Provjereno 21.10.2026. stvarnim uvozom stalnog XML-a (ChatGPT, e7df3c9): 470 primljeno, 470 prihvaćeno; datum iz atributa datum (DD.MM.GGGG)."
+    },
+    {
+      "id": "mirakul",
+      "naziv": "Mirakul inovativna grijanja",
+      "vrsta": "trgovina",
+      "format": "xml",
+      "stranica": "https://www.mirakul-inovativna-grijanja.hr/",
+      "popis": true,
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "XML poveznica u podnožju (ChatGPT, 21.10.2026.). Oprema za grijanje; uključuje se samo za građevinski materijal/opremu."
+    },
+    {
+      "id": "njuskalo",
+      "naziv": "Njuškalo",
+      "vrsta": "oglasnik",
+      "format": "oglasi-json",
+      "url": null,
+      "status": "blokirano",
+      "omogucen": false,
+      "napomena": "Nema pronađenog službenog API-ja; automatsko prikupljanje vjerojatno krši uvjete korištenja. Treba pisano dopuštenje ili službeni izvoz."
+    },
+    {
+      "id": "index-oglasi",
+      "naziv": "Index Oglasi",
+      "vrsta": "oglasnik",
+      "format": "oglasi-json",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Službeni API ili izvoz nije pronađen; uvjeti korištenja nisu provjereni."
+    },
+    {
+      "id": "plavi-oglasnik",
+      "naziv": "Plavi oglasnik",
+      "vrsta": "oglasnik",
+      "format": "oglasi-json",
+      "url": null,
+      "status": "neprovjereno",
+      "omogucen": false,
+      "napomena": "Službeni API ili izvoz nije pronađen; uvjeti korištenja nisu provjereni."
+    },
+    {
+      "id": "facebook-marketplace",
+      "naziv": "Facebook Marketplace",
+      "vrsta": "oglasnik",
+      "format": "oglasi-json",
+      "url": null,
+      "status": "blokirano",
+      "omogucen": false,
+      "napomena": "Zahtijeva prijavu; prijave i CAPTCHA se ne zaobilaze."
+    }
+  ]
+}
