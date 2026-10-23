@@ -46,6 +46,7 @@ jobs:
           node tests/filtri.cjs
           node tests/sve-u-jednom.cjs
           node tests/sw.cjs
+          node tests/dostava.cjs
 
       # Zadnji valjani cjenik svakog izvora, za dan kad izvor ne radi (starost se provjerava pri uvozu).
       - uses: actions/cache/restore@v4
@@ -127,6 +128,7 @@ jobs:
           node tests/filtri.cjs
           node tests/sve-u-jednom.cjs
           node tests/sw.cjs
+          node tests/dostava.cjs
       - name: Izbornik kategorija Njuškala (samo kategorije, bez oglasa)
         continue-on-error: true
         timeout-minutes: 5

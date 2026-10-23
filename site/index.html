@@ -23,6 +23,20 @@
         <div><span class="mali-naslov">NABAVA MATERIJALA</span><h1 id="naslov-popisa">Popis materijala</h1></div>
         <span id="broj-stavki" class="oznaka">0 stavki</span>
       </div>
+      <section class="nacin-panel" aria-labelledby="nacin-naslov">
+        <h2 id="nacin-naslov" class="nacin-naslov">Preuzimanje</h2>
+        <div class="nacin-izbor" role="radiogroup" aria-labelledby="nacin-naslov">
+          <button id="bez-dostave" type="button" role="radio" aria-checked="true"><strong>Bez dostave</strong><small>Samo materijal, preuzimanje u trgovini</small></button>
+          <button id="s-dostavom" type="button" role="radio" aria-checked="false"><strong>S dostavom</strong><small>Materijal i dostava na gradilište</small></button>
+        </div>
+        <fieldset id="adresa-dostave" class="adresa-dostave" hidden>
+          <legend>Adresa dostave (gradilište)</legend>
+          <label>Poštanski broj <input id="adresa-postanski" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="10000"></label>
+          <label>Mjesto <input id="adresa-mjesto" maxlength="80" autocomplete="address-level2" placeholder="Zagreb"></label>
+          <label class="sirina">Ulica i broj (nije obvezno) <input id="adresa-ulica" maxlength="120" autocomplete="street-address"></label>
+          <p class="sitno">Adresa ostaje samo u ovom pregledniku i ne šalje se trgovcima. Sama adresa nije cijena dostave: računa se samo iz objavljenih uvjeta firme, inače „Dostava na upit”.</p>
+        </fieldset>
+      </section>
       <div class="dodavanje">
         <button id="mikrofon" type="button" class="glasovni-gumb">
           <span class="mikrofon-krug" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8" stroke-linecap="round"/></svg></span>
@@ -47,7 +61,7 @@
         <p id="nedostaje" class="upozorenje" hidden></p>
         <div id="preostalo" class="preostalo" hidden>Još za kupiti: <strong id="preostalo-iznos"></strong></div>
         <div id="po-trgovinama" class="po-trgovinama"></div>
-        <p class="napomena-dostava">Dostava nije uključena u iznos.</p>
+        <p id="napomena-dostava" class="napomena-dostava">Dostava nije uključena u iznos.</p>
       </div>
       <section id="jedna-trgovina" class="jedna-trgovina" aria-labelledby="jedna-naslov" hidden>
         <h2 id="jedna-naslov">Sve u jednom dućanu</h2>
@@ -57,7 +71,7 @@
         <ul id="trgovine-usporedba" class="trgovine-usporedba" aria-label="Trgovine sa svim stavkama, od najjeftinije"></ul>
         <h3 id="nepotpune-naslov" class="nepotpune-naslov" hidden>Nepotpuno: trgovine bez svih stavki</h3>
         <ul id="trgovine-nepotpune" class="trgovine-usporedba" aria-label="Trgovine bez svih stavki"></ul>
-        <p class="savjet">Dostavu nude i obavljaju same trgovine; njihovi uvjeti i cijena dostave nisu potvrđeni u podacima pa nisu uključeni u iznose.</p>
+        <p id="savjet-dostava" class="savjet">Dostavu nude i obavljaju same trgovine. Uključena je samo kad je cijena dostave objavljena u službenim uvjetima firme; inače piše „Dostava na upit”. Ništa se ne naručuje ni šalje trgovcima.</p>
       </section>
     </section>
     <footer>

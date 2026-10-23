@@ -14,6 +14,8 @@ let stanje = {
   nacin: "jedinica",  // Poredak uvijek određuje jedinična cijena.
   iskljuceni: [],     // nazivi lanaca koji korisniku ne odgovaraju
   jedna: null,        // naziv lanca ako se kupuje sve u jednoj trgovini
+  dostava: false,     // false = Bez dostave (samo materijal), true = S dostavom na adresu gradilišta
+  adresa: { mjesto: "", postanski: "", ulica: "" }, // samo u ovom pregledniku; ne šalje se nikamo
 };
 try { Object.assign(stanje, JSON.parse(localStorage.getItem(SPREMISTE)) || {}); } catch (e) {}
 // Starija verzija je spremala popis kao obične tekstove.
@@ -30,6 +32,9 @@ stanje.iskljuceni = [];
 stanje.jedna = null;
 stanje.odabir = {};
 stanje.odabirSvi = {};
+stanje.dostava = stanje.dostava === true;
+stanje.adresa = { mjesto: String(stanje.adresa?.mjesto || "").slice(0, 80), postanski: String(stanje.adresa?.postanski || "").slice(0, 5),
+  ulica: String(stanje.adresa?.ulica || "").slice(0, 120) };
 function valjanoTrazeno(t) {
   return !!t && JEDINICE.includes(t.jedinica) && Number.isFinite(t.iznos) && t.iznos > 0 && t.iznos <= 100000;
 }
@@ -108,6 +113,7 @@ async function ucitajPodatke() {
         if (indeksOdgovor.ok) klasifikacija = Skupine.pripremi(podaci.proizvodi, await indeksOdgovor.json(), rijeci);
       } catch (e) { /* Cjenik ostaje dostupan i ako indeks nedostaje ili je zastario. */ }
     }
+    await ucitajDostavu();
     const [g, m, d] = podaci.datum.split("-");
     $("status").textContent =
       `Cijene od ${d}.${m}.${g}. · ${podaci.proizvodi.length.toLocaleString("hr-HR")} ponuda · `
@@ -801,7 +807,29 @@ function prikaziRezultate() {
     .sort((a, b) => b[1] - a[1])
     .map(([l, n]) => `${l}: ${n}`)
     .join(" · ");
+  prikaziNacin();
   prikaziJednuTrgovinu();
+}
+
+// Izbor Bez dostave / S dostavom i adresa gradilišta (adresa je obvezna samo uz dostavu).
+function prikaziNacin() {
+  const b = $("bez-dostave"), sd = $("s-dostavom");
+  if (!b || !sd) return;
+  b.setAttribute("aria-checked", String(!stanje.dostava));
+  sd.setAttribute("aria-checked", String(stanje.dostava));
+  b.classList[stanje.dostava ? "remove" : "add"]("odabran");
+  sd.classList[stanje.dostava ? "add" : "remove"]("odabran");
+  $("adresa-dostave").hidden = !stanje.dostava;
+  $("napomena-dostava").textContent = stanje.dostava
+    ? "Iznos je materijal; dostava po trgovcu je u usporedbi ispod (za cijelu narudžbu, ne po artiklu)."
+    : "Bez dostave: iznos je samo materijal.";
+}
+
+function postaviNacin(sDostavom) {
+  if (stanje.dostava === sDostavom) return;
+  stanje.dostava = sDostavom;
+  spremi();
+  prikazi(); // popis i količine ostaju; sve usporedbe se ponovno računaju
 }
 
 // Sve u jednom dućanu: ukupan iznos cijelog popisa u svakoj trgovini (cijela pakiranja, iste tražene količine,
@@ -829,6 +857,27 @@ function sveUJednomDucanu() {
     if (!z.nema.length) potpune.push(red);
     else nepotpune.push(red); // i trgovine bez ijedne stavke (0/Y): korisnik vidi sve odabrane trgovine
   }
+  if (stanje.dostava) {
+    // S dostavom: konačni iznos = materijal + dostava firme za cijelu narudžbu; nepoznata dostava nema konačni iznos.
+    for (const r of [...potpune, ...nepotpune]) {
+      r.dostava = dostavaFirme(firmaLanca(r.lanac), r.ukupno);
+      r.materijal = r.ukupno;
+      r.konacno = r.dostava.stanje === "poznata" ? (centi(r.ukupno) + centi(r.dostava.cijena)) / 100 : null;
+    }
+    potpune.sort((a, b) => (a.konacno === null) - (b.konacno === null)
+      || centi(a.konacno ?? a.ukupno) - centi(b.konacno ?? b.ukupno) || a.ime.localeCompare(b.ime, "hr"));
+    const najmanjeK = potpune.find((r) => r.konacno !== null);
+    // Troškovi stavki po trgovcu (centi) za optimum s dostavom.
+    const troskovi = stanje.popis.map((stavka) => new Map([...(najboljePoStavci.get(stavka.naziv) || new Map())]
+      .map(([l, p]) => [l, centi(p.cijena * brojPakiranja(stavka, p, true))])));
+    const kombD = (troskovi.every((t) => t.size) ? kombinacijaSDostavom(troskovi) : null);
+    for (const r of potpune) {
+      r.najpovoljniji = !!najmanjeK && r.konacno !== null && centi(r.konacno) === centi(najmanjeK.konacno);
+      r.razlika = kombD && r.konacno !== null ? (centi(r.konacno) - centi(kombD.ukupno)) / 100 : null;
+    }
+    return { potpune, nepotpune, stavki, jedinice, kombinacija: kombinacijaNedostaje ? null : kombinacija, kombinacijaNedostaje,
+      dostava: true, kombinacijaDostava: kombD, jednaDostava: najmanjeK || null };
+  }
   potpune.sort((a, b) => centi(a.ukupno) - centi(b.ukupno) || a.ime.localeCompare(b.ime, "hr"));
   nepotpune.sort((a, b) => b.pokriveno - a.pokriveno || a.ukupno - b.ukupno || a.ime.localeCompare(b.ime, "hr"));
   const najmanje = potpune.length ? centi(potpune[0].ukupno) : null;
@@ -837,6 +886,80 @@ function sveUJednomDucanu() {
     r.razlika = kombinacijaNedostaje ? null : (centi(r.ukupno) - centi(kombinacija)) / 100;
   }
   return { potpune, nepotpune, stavki, jedinice, kombinacija: kombinacijaNedostaje ? null : kombinacija, kombinacijaNedostaje };
+}
+
+// ---------- Dostava ----------
+// Pravila dostave po firmi samo iz službenih uvjeta firme (data/dostava.json: URL, datum provjere, citat). Dostava se
+// računa za cijelu narudžbu kod firme, nikad po artiklu. Bez primjenjivog pravila: "Dostava na upit" (nikad 0 €) i
+// takav iznos ne može biti najpovoljniji konačni trošak.
+let dostava = null;
+async function ucitajDostavu() {
+  try {
+    const o = await fetch("data/dostava.json", { cache: "no-cache" });
+    dostava = o.ok ? await o.json() : null;
+  } catch (e) { dostava = null; }
+}
+const valjanPostanski = (p) => /^\d{5}$/.test(p || "");
+function firmaLanca(l) {
+  return (Array.isArray(podaci.firmeLanaca) && podaci.firmeLanaca[l]) || String(podaci.lanci[l]).replace(/ \((web|oglasi)\)$/, "");
+}
+// { stanje: "poznata" | "na-upit", cijena (€ ili null), opis, izvor: pravilo s URL-om i datumom }
+function dostavaFirme(firma, iznos) {
+  const p = dostava && dostava.pravila ? dostava.pravila[firma] : null;
+  const naUpit = (opis, izvor = null) => ({ stanje: "na-upit", cijena: null, opis, izvor });
+  if (!p) return naUpit("Dostava na upit: firma u našim podacima nema objavljenu cijenu dostave.");
+  if (p.vrsta !== "fiksno") return naUpit(`Dostava na upit${p.napomena ? ` (${p.napomena})` : ""}.`, p);
+  if (!valjanPostanski(stanje.adresa.postanski)) return naUpit("Za izračun dostave upiši poštanski broj gradilišta.", p);
+  const podrucje = p.podrucje && Array.isArray(p.podrucje.postanski) ? p.podrucje.postanski : null;
+  if (podrucje && !podrucje.some((x) => stanje.adresa.postanski.startsWith(x))) {
+    return naUpit("Adresa je izvan objavljenog područja dostave: dostava na upit.", p);
+  }
+  if (Number.isFinite(p.min_narudzba) && iznos < p.min_narudzba) {
+    return naUpit(`Narudžba je ispod najmanjeg iznosa za dostavu (${euro(p.min_narudzba)}): dostava na upit.`, p);
+  }
+  const besplatno = Number.isFinite(p.besplatno_od) && iznos >= p.besplatno_od;
+  return { stanje: "poznata", cijena: besplatno ? 0 : p.iznos, izvor: p,
+    opis: (besplatno ? `Dostava besplatna (narudžba od ${euro(p.besplatno_od)})` : `Dostava ${euro(p.iznos)} po narudžbi`)
+      + (p.ogranicenja ? ` · ${p.ogranicenja}` : "") };
+}
+
+// Točan optimum s dostavom: svi skupovi od najviše 3 trgovca s poznatom dostavom; svaka stavka kod najjeftinijeg
+// trgovca iz skupa (cijela pakiranja), plus dostava svakog korištenog trgovca prema iznosu njegove narudžbe.
+const NAJVISE_TRGOVACA = 3;
+function kombinacijaSDostavom(troskovi) {
+  const lanci = [...new Set(troskovi.flatMap((t) => [...t.keys()]))];
+  const poznata = lanci.filter((l) => dostava?.pravila?.[firmaLanca(l)]?.vrsta === "fiksno");
+  let naj = null;
+  const skup = [];
+  const probaj = () => {
+    const narudzbe = new Map();
+    let materijal = 0;
+    for (const t of troskovi) {
+      let m = null;
+      for (const l of skup) if (t.has(l) && (m === null || t.get(l) < t.get(m))) m = l;
+      if (m === null) return;
+      materijal += t.get(m);
+      narudzbe.set(m, (narudzbe.get(m) || 0) + t.get(m));
+    }
+    let ukupno = materijal;
+    const dostave = [];
+    for (const [l, iznos] of narudzbe) {
+      const d = dostavaFirme(firmaLanca(l), iznos / 100);
+      if (d.stanje !== "poznata") return;
+      ukupno += centi(d.cijena);
+      dostave.push({ lanac: l, ime: podaci.lanci[l], materijal: iznos / 100, dostava: d });
+    }
+    if (!naj || ukupno < naj.ukupno || (ukupno === naj.ukupno && dostave.length < naj.dostave.length)) {
+      naj = { ukupno, materijal, dostave };
+    }
+  };
+  const rek = (od) => {
+    if (skup.length) probaj();
+    if (skup.length === NAJVISE_TRGOVACA) return;
+    for (let i = od; i < poznata.length; i++) { skup.push(poznata[i]); rek(i + 1); skup.pop(); }
+  };
+  rek(0);
+  return naj && { ukupno: naj.ukupno / 100, materijal: naj.materijal / 100, dostave: naj.dostave, trgovaca: naj.dostave.length };
 }
 
 function redTrgovine(r) {
@@ -859,25 +982,47 @@ function redTrgovine(r) {
   const naziv = document.createElement("strong");
   naziv.textContent = r.ime;
   const opis = document.createElement("small");
-  opis.textContent = r.nedostaje.length
+  const opisDostave = r.dostava ? ` · ${r.dostava.opis}` : "";
+  opis.textContent = (r.nedostaje.length
     ? `Pokriva ${r.pokriveno}/${r.stavki} · nedostaje: ${r.nedostaje.join(", ")}`
     : `Ima sve (${r.stavki}/${r.stavki})` + (r.razlika === null ? ""
       : r.razlika > 0 ? ` · ${euro(r.razlika)} više od najpovoljnije kombinacije` : " · jednako najpovoljnijoj kombinaciji")
-      + (r.rucniOdabir.length ? ` · uključuje ručno odabrane ponude: ${r.rucniOdabir.join(", ")}` : "");
+      + (r.rucniOdabir.length ? ` · uključuje ručno odabrane ponude: ${r.rucniOdabir.join(", ")}` : "")) + opisDostave;
   lijevo.append(naziv, opis);
   const iznos = document.createElement("span");
   iznos.className = "iznos";
-  iznos.textContent = r.pokriveno ? euro(r.ukupno) : "—";
+  iznos.textContent = !r.pokriveno ? "—" : r.dostava && r.konacno !== null ? euro(r.konacno)
+    : r.dostava ? `${euro(r.ukupno)} + dostava na upit` : euro(r.ukupno);
   if (r.nedostaje.length && r.pokriveno) {
     const oznaka = document.createElement("small");
     oznaka.textContent = "djelomično, nije cijeli popis";
     iznos.appendChild(oznaka);
   }
   iznos.setAttribute("aria-label", r.nedostaje.length ? `Djelomični iznos ${euro(r.ukupno)}, nije cijeli popis`
+    : r.dostava && r.konacno !== null ? `${euro(r.konacno)}: materijal ${euro(r.ukupno)} i dostava ${euro(r.dostava.cijena)}`
+    : r.dostava ? `Materijal ${euro(r.ukupno)}, dostava na upit: konačni iznos nije poznat`
     : `${euro(r.ukupno)} za cijela pakiranja, isto kao zbroj kartica u toj trgovini`);
   b.append(lijevo, iznos);
   li.appendChild(b);
   return li;
+}
+
+// Dva rezultata s dostavom: Sve kod jednog trgovca i Najjeftinija kombinacija trgovaca (materijal + dostava svake narudžbe).
+function opisSDostavom(rez) {
+  const jedna = rez.jednaDostava;
+  const k = rez.kombinacijaDostava;
+  const dijelovi = [];
+  dijelovi.push(jedna
+    ? `Sve kod jednog trgovca: ${euro(jedna.konacno)} (${jedna.ime}: materijal ${euro(jedna.materijal)} + dostava ${euro(jedna.dostava.cijena)}; 1 dostava).`
+    : "Sve kod jednog trgovca: nijedan potpuni trgovac nema poznatu dostavu na ovu adresu (dostava na upit).");
+  dijelovi.push(k
+    ? `Najjeftinija kombinacija (najviše ${NAJVISE_TRGOVACA} trgovca): ${euro(k.ukupno)} · ${k.trgovaca} ${k.trgovaca === 1 ? "trgovac" : "trgovca"}, `
+      + `${k.trgovaca} ${k.trgovaca === 1 ? "dostava" : "zasebne dostave"} (materijal ${euro(k.materijal)}; `
+      + k.dostave.map((d) => `${d.ime}: ${euro(d.dostava.cijena)}`).join(", ") + ")"
+      + (jedna ? (centi(jedna.konacno) > centi(k.ukupno) ? ` · ušteda ${euro((centi(jedna.konacno) - centi(k.ukupno)) / 100)}` : " · jednako jednom trgovcu") : "") + "."
+    : "Najjeftinija kombinacija s dostavom: nema potpune kombinacije s poznatom dostavom (dostava na upit).");
+  if (rez.kombinacija !== null) dijelovi.push(`Samo materijal, bez dostave: ${euro(rez.kombinacija)}.`);
+  return dijelovi.join(" ");
 }
 
 function prikaziJednuTrgovinu() {
@@ -888,7 +1033,8 @@ function prikaziJednuTrgovinu() {
   $("jedna-trgovina").hidden = !podaci || !stanje.popis.length;
   if (!podaci || !stanje.popis.length) return null;
   const rez = sveUJednomDucanu();
-  $("kombinacija").textContent = rez.kombinacija !== null
+  $("kombinacija").textContent = rez.dostava ? opisSDostavom(rez)
+    : rez.kombinacija !== null
     ? `Najpovoljnija kombinacija više trgovina: ${euro(rez.kombinacija)} (cijela pakiranja; svaka stavka u trgovini s najnižim iznosom).`
     : `Kombinacija više trgovina nije potpuna: za ${rez.kombinacijaNedostaje} od ${rez.stavki} stavki nema usporedive ponude.`;
   $("usporedne-kolicine").textContent = rez.jedinice.length ? `Iste količine u svakoj trgovini: ${rez.jedinice.join(" · ")}.` : "";
@@ -955,6 +1101,16 @@ $("lanci-nista").onclick = () => {
 
 // ---------- Gumbi ----------
 $("ponovi").onclick = ucitajPodatke;
+$("bez-dostave").onclick = () => postaviNacin(false);
+$("s-dostavom").onclick = () => postaviNacin(true);
+for (const [polje, kljuc] of [["adresa-postanski", "postanski"], ["adresa-mjesto", "mjesto"], ["adresa-ulica", "ulica"]]) {
+  $(polje).value = stanje.adresa[kljuc];
+  $(polje).addEventListener("input", () => {
+    stanje.adresa[kljuc] = $(polje).value.trim();
+    spremi();
+    prikaziJednuTrgovinu(); // promjena adrese osvježava dostupnost i izračun dostave po trgovcu
+  });
+}
 $("mikrofon").onclick = pokreniSlusanje;
 $("rucni-unos").onsubmit = (e) => {
   e.preventDefault();

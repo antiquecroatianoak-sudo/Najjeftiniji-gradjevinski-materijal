@@ -1,0 +1,5 @@
+{
+  "napomena": "Pravila dostave samo iz službenih uvjeta firme (URL, datum provjere, doslovni citat). Ključ je naziv firme kao u aplikaciji. vrsta: \"fiksno\" (iznos po narudžbi, opcionalno besplatno_od, min_narudzba, podrucje.postanski = prefiksi) ili \"na_upit\". Firma bez pravila: Dostava na upit. Prikupljanje: scripts/uvjeti_dostave.py (radna grana).",
+  "azurirano": "2026-10-23",
+  "pravila": {}
+}
