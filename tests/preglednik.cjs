@@ -85,8 +85,10 @@ async function main() {
   const ugasi = () => new Promise((r) => { posluzitelj.close(r); posluzitelj.closeAllConnections(); });
   const upali = () => new Promise((r) => posluzitelj.listen(PORT, "127.0.0.1", r));
   const opcije = { headless: true };
-  if (fs.existsSync("/opt/pw-browsers/chromium")) opcije.executablePath = "/opt/pw-browsers/chromium";
-  const preglednik = await chromium.launch(opcije).catch(() => chromium.launch({ headless: true }));
+  // PREGLEDNIK: putanja do Chromea/Chromiuma (u GitHub Actions instalirani Google Chrome slike runnera).
+  const putanja = process.env.PREGLEDNIK || (fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : "");
+  if (putanja) opcije.executablePath = putanja;
+  const preglednik = await chromium.launch(opcije);
   console.log(`Chromium ${preglednik.version()}, origin ${ORIGIN}`);
   const realanG = fs.existsSync(path.join(NOVI, "data", "proizvodi.json"));
   const realanK = fs.existsSync(path.join(KOS, "data", "proizvodi.json"));

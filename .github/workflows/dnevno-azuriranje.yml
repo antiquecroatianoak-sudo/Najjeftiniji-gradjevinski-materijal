@@ -194,7 +194,9 @@ jobs:
         timeout-minutes: 25
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
-          npx playwright install --with-deps chromium
+          # Playwright ne preuzima vlastiti Chromium za ovu sliku runnera; koristi se Google Chrome koji je na runneru.
+          export PREGLEDNIK="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
+          echo "Preglednik: $PREGLEDNIK ($("$PREGLEDNIK" --version))"
           # Košarica: točno objavljena verzija s GitHub Pages (njezin repozitorij se ne mijenja).
           K=https://antiquecroatianoak-sudo.github.io/Najjeftinija-kosarica
           for f in index.html stil.css aplikacija.js skupine.js sw.js manifest.webmanifest ikona.svg ikona-192.png ikona-512.png \
