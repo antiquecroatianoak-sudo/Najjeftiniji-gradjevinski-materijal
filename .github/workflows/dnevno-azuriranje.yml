@@ -161,6 +161,20 @@ jobs:
               d = json.loads(p.read_text())
               print(f"Jedinstvenih proizvoda: {len(d['proizvodi'])}, izvora: {len(d['lanci'])}, datum: {d['datum']}")
           PY
+      - name: Firme nakon spajanja prodajnih mjesta (dijagnoza)
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path("site/data/proizvodi.json").read_text())
+          for i, ime in enumerate(d["lanci"]):
+              print(f"{ime} | firma {d.get('firmeLanaca', [''])[i] if d.get('firmeLanaca') else ''} | mjesta {len((d.get('mjestaLanaca') or [[]]*len(d['lanci']))[i])} | različit cjenik {bool((d.get('razlicitCjenikLanaca') or [False]*len(d['lanci']))[i])}")
+          PY
+      - name: Službeni uvjeti dostave (za ručnu provjeru, ništa se ne uvozi)
+        continue-on-error: true
+        timeout-minutes: 15
+        run: python -u scripts/uvjeti_dostave.py
       - name: Sirovi uzorak spojenih redaka (dijagnoza)
         continue-on-error: true
         timeout-minutes: 10
