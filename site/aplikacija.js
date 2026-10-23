@@ -901,14 +901,15 @@ async function ucitajDostavu() {
 }
 const valjanPostanski = (p) => /^\d{5}$/.test(p || "");
 function firmaLanca(l) {
-  return (Array.isArray(podaci.firmeLanaca) && podaci.firmeLanaca[l]) || String(podaci.lanci[l]).replace(/ \((web|oglasi)\)$/, "");
+  return String((Array.isArray(podaci.firmeLanaca) && podaci.firmeLanaca[l]) || podaci.lanci[l]).replace(/ \((web|oglasi)\)$/, "");
 }
+const izvorDostave = (p) => (p && p.url ? ` (uvjeti: ${p.url.replace(/^https:\/\/(www\.)?/, "")}${p.provjereno ? `, provjereno ${p.provjereno.split("-").reverse().join(".")}.` : ""})` : "");
 // { stanje: "poznata" | "na-upit", cijena (€ ili null), opis, izvor: pravilo s URL-om i datumom }
 function dostavaFirme(firma, iznos) {
   const p = dostava && dostava.pravila ? dostava.pravila[firma] : null;
   const naUpit = (opis, izvor = null) => ({ stanje: "na-upit", cijena: null, opis, izvor });
   if (!p) return naUpit("Dostava na upit: firma u našim podacima nema objavljenu cijenu dostave.");
-  if (p.vrsta !== "fiksno") return naUpit(`Dostava na upit${p.napomena ? ` (${p.napomena})` : ""}.`, p);
+  if (p.vrsta !== "fiksno") return naUpit(`Dostava na upit${p.napomena ? `: ${p.napomena}` : ""}${izvorDostave(p)}.`, p);
   if (!valjanPostanski(stanje.adresa.postanski)) return naUpit("Za izračun dostave upiši poštanski broj gradilišta.", p);
   const podrucje = p.podrucje && Array.isArray(p.podrucje.postanski) ? p.podrucje.postanski : null;
   if (podrucje && !podrucje.some((x) => stanje.adresa.postanski.startsWith(x))) {

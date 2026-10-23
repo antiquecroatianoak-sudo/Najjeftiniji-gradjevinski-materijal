@@ -219,3 +219,30 @@ specifikacija, stanje (novo/rabljeno), pdv (ukljucen/nije-obveznik), lokacija, d
 - Oglas bez cijene (na upit) nema iznos i ne prikazuje se. Prodani, neaktivni i oglasi provjereni prije više od 7 dana se uklanjaju.
 - Isti oglas na više oglasnika (isti naslov, cijena i mjesto) prikazuje se jednom.
 - Svaki oglas čuva izvor, URL i datum provjere.
+
+## Revizija 23.10.2026. (run 39912562464, grana `claude/izolacija-dostava`, bez objave)
+
+### Firme umjesto prodajnih mjesta
+- 21 izvor, 14 uspješnih; nakon `spoji_firme` 12 firmi u 14 unosa, 70 927 jedinstvenih proizvoda.
+- Spajaju se samo prodajna mjesta iste firme s istovjetnim cjenikom (šifra, naziv, iznos, jedinica, specifikacija). U stvarnim podacima nijedno nije istovjetno: Top Alati ima 3 prodajna mjesta s različitim cijenama, pa ostaju zasebni unosi označeni „Firma · mjesto“.
+
+### Otkrivanje izvora (automatski, `scripts/otkrivanje.py`)
+| Ishod | Firme / domene |
+|---|---|
+| Aktivni službeni cjenik | Bačelić (46 967 ponuda), ARKOR (1 407) |
+| Blokirano (403), ne zaobilazi se | Pevex, Bauhaus, Mirakul |
+| TLS greška, ne zaobilazi se | vijci.com, rif.hr |
+| Samo HTML cijene, bez strojno čitljivog cjenika | IKOMA, Fero-Term, Petrokov, Akord, ERA, Građa, Frida Mijić, Consortium, Merkury, MC PLUS |
+| Cjenik nije pronađen | Gradnja invest, Bit Promet, Drvona |
+| Ostalo | Unikomerc (nepoznat datum), Termometal (neispravan XML) |
+| Imenici – odbačeno kao nepovezano | azop, nivago, hrturizam, linker |
+| Webshop pilot (schema.org) | MC PLUS 18, ERA 25, Consortium 7, Frida 5 ponuda |
+
+Ograničenje: iz radnog okruženja razvoja .hr domene nisu dostupne, pa se nove firme istražuju samo kroz GitHub Actions. Proširenje izvora iznad ovoga zahtijeva nove imenike ili ručno dodane službene stranice.
+
+### Uvjeti dostave (`scripts/uvjeti_dostave.py` → `site/data/dostava.json`)
+- Pregledane službene stranice dostave/općih uvjeta: Profi baucentar, Gavroprom, Top Alati, Veker, Građevinska apoteka, Telack, MC PLUS, ERA-COMMERCE. Za svaku je zapisan URL, datum provjere (23.10.2026.) i doslovni citat.
+- Nijedna firma ne objavljuje fiksnu cijenu dostave po narudžbi: cijena ovisi o masi, volumenu ili odredištu i prikazuje se u košarici webshopa. Sve su zato „Dostava na upit“ s izvorom; nepoznata dostava nikad nije 0 € ni pobjednik konačnog zbroja.
+- Gavroprom i Građevinska apoteka objavljuju tablice po masi; zabilježene su doslovno, ali se ne primjenjuju jer cjenici nemaju bruto masu pošiljke (bez pogađanja).
+- Bačelić: robots.txt ne dopušta stranice dostave; TERMO-METAL: 403; ARKOR: stranica dostave nije pronađena.
+- Sljedeći korak: mase proizvoda iz schema.org podataka webshopova, pa primjena objavljenih tablica.

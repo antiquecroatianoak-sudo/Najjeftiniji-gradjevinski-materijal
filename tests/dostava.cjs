@@ -114,3 +114,21 @@ assert.equal(r.dostava, undefined);
 console.log("DELIVERY PASS: default without delivery, no postcode -> na upit and no winner, per-order fee, outside area and "
   + "below minimum -> na upit, free threshold, unknown never 0 or cheapest, combination with delivery = brute force, address "
   + "and mode change recompute and keep the list");
+
+// Stvarna datoteka pravila: svako pravilo ima službeni URL, datum provjere i doslovni citat; nijedan iznos nije izmišljen.
+const fs = require("fs");
+const stvarna = JSON.parse(fs.readFileSync(require("path").join(__dirname, "../site/data/dostava.json"), "utf8"));
+for (const [firma, p] of Object.entries(stvarna.pravila)) {
+  assert.match(p.url, /^https:\/\//, firma);
+  assert.match(p.provjereno, /^\d{4}-\d{2}-\d{2}$/, firma);
+  assert.ok(p.citat && p.citat.length > 20, firma);
+  assert.ok(p.vrsta === "na_upit" || (p.vrsta === "fiksno" && Number.isFinite(p.iznos)), firma);
+}
+app = scenarij(proizvodi, popis, stvarna.pravila);
+run(app, `stanje.dostava = true; stanje.adresa = { mjesto: "Zagreb", postanski: "10000", ulica: "" };
+  podaci.lanci = ["Gavroprom", "Veker", "Consortium (web)"]; podaci.firmeLanaca = ["Gavroprom", "Veker", "Consortium (web)"];`);
+r = run(app, "prikaziJednuTrgovinu()");
+assert.ok(r.potpune.every((x) => x.konacno === null && !x.najpovoljniji), "published weight-based terms stay 'na upit'");
+assert.match(r.potpune.find((x) => x.ime === "Gavroprom").dostava.opis, /^Dostava na upit: .*gavroprom\.hr\/web\/placanje-i-dostava-webshop\/57\/, provjereno 23\.10\.2026\./);
+assert.match(r.potpune.find((x) => x.ime === "Consortium (web)").dostava.opis, /nema objavljenu cijenu dostave/);
+console.log("DELIVERY DATA PASS: every rule has official URL, date and quote; weight/destination-based terms stay 'na upit' with source");
