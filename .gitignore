@@ -6,3 +6,6 @@ site/data/skupine.json
 site/data/stanje-izvora.json
 .predmemorija/
 site/data/otkriveni.json
+site/data/firme-izvjesce.json
+node_modules/
+preglednik-dokazi/

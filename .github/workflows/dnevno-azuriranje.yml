@@ -188,6 +188,25 @@ jobs:
         continue-on-error: true
         run: |
           if [ -f site/data/proizvodi.json ]; then node scripts/revizija.cjs; fi
+      - name: Firme s prihvaćenim ponudama (stvarni uvoz)
+        run: python scripts/firme_izvjesce.py
+      - name: Preglednik (Chromium) - obje aplikacije na istom originu, nadogradnja SW, offline, mobilno 320/390 px
+        timeout-minutes: 25
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+          # Košarica: točno objavljena verzija s GitHub Pages (njezin repozitorij se ne mijenja).
+          K=https://antiquecroatianoak-sudo.github.io/Najjeftinija-kosarica
+          for f in index.html stil.css aplikacija.js skupine.js sw.js manifest.webmanifest ikona.svg ikona-192.png ikona-512.png \
+                   leaflet/leaflet.js leaflet/leaflet.css data/proizvodi.json data/skupine.json; do
+            mkdir -p "/tmp/kosarica/$(dirname "$f")"
+            curl -sSfL --retry 3 "$K/$f" -o "/tmp/kosarica/$f"
+          done
+          # Stara građevinska: glavna grana (objavljena verzija, service worker gradjevina-v14).
+          mkdir -p /tmp/stari
+          git fetch --depth=1 origin main
+          git archive FETCH_HEAD site | tar -x -C /tmp/stari --strip-components=1
+          node tests/preglednik.cjs --kosarica /tmp/kosarica --stari /tmp/stari --novi site --izlaz preglednik-dokazi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -198,6 +217,8 @@ jobs:
             site/data/njuskalo-kategorije.json
             site/data/revizija.json
             site/data/skupine.json
+            site/data/firme-izvjesce.json
+            preglednik-dokazi/
             site/data/webshop.json
             site/data/uzorak-spajanja.json
           if-no-files-found: ignore

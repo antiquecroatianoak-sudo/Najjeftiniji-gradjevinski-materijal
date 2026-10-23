@@ -5,8 +5,13 @@ const PREFIKS = "gradjevina-";
 const CACHE = PREFIKS + "v15";
 const OSNOVA = ["./", "index.html", "stil.css", "aplikacija.js", "skupine.js", "manifest.webmanifest", "ikona.svg", "ikona-192.png", "ikona-512.png"];
 
+// Cjenik se pri prvom posjetu dohvati prije nego worker preuzme stranicu, pa ga se sprema i ovdje: aplikacija se tada
+// otvara bez interneta s posljednjim cijenama već nakon prvog posjeta. Nedostupan cjenik ne ruši instalaciju.
+const PODACI = ["data/proizvodi.json", "data/skupine.json", "data/dostava.json"];
+
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(OSNOVA)));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(OSNOVA)
+    .then(() => Promise.all(PODACI.map((u) => c.add(u).catch(() => {}))))));
   self.skipWaiting();
 });
 
