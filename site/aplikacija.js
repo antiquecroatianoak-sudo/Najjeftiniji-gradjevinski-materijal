@@ -110,7 +110,8 @@ async function ucitajPodatke() {
     }
     const [g, m, d] = podaci.datum.split("-");
     $("status").textContent =
-      `Cijene od ${d}.${m}.${g}. · ${podaci.proizvodi.length.toLocaleString("hr-HR")} ponuda · ${podaci.lanci.length} izvora`;
+      `Cijene od ${d}.${m}.${g}. · ${podaci.proizvodi.length.toLocaleString("hr-HR")} ponuda · `
+      + `${new Set(Array.isArray(podaci.firmeLanaca) ? podaci.firmeLanaca : podaci.lanci).size} firmi`;
     $("status").parentElement.classList.add("spremno");
   } catch (e) {
     podaci = null;
@@ -609,6 +610,15 @@ function opisTraga(p) {
   tekst.textContent = ["Službeni cjenik", `redak ${t[0]}`, t[1] ? `šifra ${t[1]}` : "",
     t[2] ? `akcija${t[4] ? `: ${t[4]}` : ""}` : "", OSNOVA_KOLICINE[t[3]] || ""].filter(Boolean).join(" · ");
   div.appendChild(tekst);
+  // Prodajna mjesta na koja se cjenik odnosi: isti cjenik firme ili (kad se cijene razlikuju) samo navedena mjesta.
+  const mjesta = (podaci.mjestaLanaca || [])[p.lanac];
+  if (Array.isArray(mjesta) && mjesta.length) {
+    const m = document.createElement("span");
+    m.textContent = (podaci.razlicitCjenikLanaca || [])[p.lanac]
+      ? ` · cijena vrijedi za: ${mjesta.join(", ")} (druga prodajna mjesta firme imaju druge cijene)`
+      : ` · isti cjenik u prodajnim mjestima: ${mjesta.join(", ")}`;
+    div.appendChild(m);
+  }
   const url = (podaci.urlLanaca || [])[p.lanac];
   if (/^https:\/\//.test(url || "")) {
     const a = document.createElement("a");

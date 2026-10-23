@@ -453,7 +453,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
     """
     rezerva = rezerva or getattr(ucitaj, "rezerva", None)
     sada = sada or datetime.now(timezone.utc)
-    lanci, vrste, stanje, datumi_lanaca, url_lanaca = [], [], [], [], []
+    lanci, vrste, stanje, datumi_lanaca, url_lanaca, id_lanaca = [], [], [], [], [], []
     svi: dict[str, dict] = {}
     vidjeni_oglasi: dict[str, str] = {}
     datumi = []
@@ -507,6 +507,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
         datumi_lanaca.append(zapis_stanja.get("datum", ""))
         # Službena datoteka cjenika (ili naslovnica webshopa) iz koje je svaka cijena ovog izvora.
         url_lanaca.append(izvor.get("url", "") if str(izvor.get("url", "")).startswith("https://") else "")
+        id_lanaca.append(izvor["id"])
         primljeno = prihvaceno = odbaceno = zastarjelo = duplikata = neuspordeno = nedostupno = negradjevinsko = 0
         proturjecna_jedinicna, primjeri_proturjecnih = 0, []
         # Osnova količine svake ponude: p potvrđena jediničnom cijenom, c iz polja cjenika, j izvedena iz jedinične cijene,
@@ -651,7 +652,7 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
                 zapis["najniza"], zapis["naziv"], zapis["marka"] = cijena, naziv, marka
         if prihvaceno == 0:
             # Cjenik bez ijedne dostupne ponude ne postaje prazna trgovina u aplikaciji.
-            lanci.pop(); vrste.pop(); datumi_lanaca.pop(); url_lanaca.pop()
+            lanci.pop(); vrste.pop(); datumi_lanaca.pop(); url_lanaca.pop(); id_lanaca.pop()
             stanje.append({**zapis_stanja, "uspjeh": False, "greska": "nema dostupnih ponuda", "primljeno": primljeno,
                            "nedostupno": nedostupno, "odbaceno": odbaceno, "zastarjelo": zastarjelo, "duplikata": duplikata,
                            **({"negradjevinsko": negradjevinsko} if izvor.get("samo_gradjevinski") else {})})
@@ -695,7 +696,83 @@ def obradi(izvori: list[dict], ucitaj, sada: datetime | None = None, rezerva=Non
     # Datum aplikacije je najstariji uključeni cjenik, da se ne prikazuje svježije od izvora.
     return {"verzija": 2, "datum": (min(datumi) if datumi else sada.date()).isoformat(), "azurirano": sada.isoformat(timespec="minutes"),
             "lanci": lanci, "vrsteIzvora": vrste, "datumiLanaca": datumi_lanaca, "urlLanaca": url_lanaca,
-            "proizvodi": proizvodi}, stanje
+            "idLanaca": id_lanaca, "proizvodi": proizvodi}, stanje
+
+
+# ---------- Firme umjesto poslovnica ----------
+def firma_izvora(izvor: dict) -> tuple[str, str, str]:
+    """(ključ firme, naziv firme, prodajno mjesto ili ""). Poslovnice s popisa cjenika pripadaju firmi roditelja."""
+    if izvor.get("roditelj"):
+        firma, _, mjesto = izvor["naziv"].partition(" · ")
+        return izvor["roditelj"], firma, mjesto
+    return izvor["id"], izvor["naziv"], ""
+
+
+def spoji_firme(podaci: dict, izvori_po_id: dict) -> dict:
+    """
+    Usporedba po FIRMAMA, ne po prodajnim mjestima. Prodajna mjesta iste firme s potpuno istim cjenikom (isti artikli:
+    šifra, naziv, količina i specifikacija, i iste cijene) postaju jedan unos firme; mjesta se čuvaju kao podrijetlo.
+    Ako se cjenici mjesta razlikuju, ništa se ne svodi na proizvoljni minimum: svaka skupina mjesta s istim cjenikom ostaje
+    zaseban unos, označen nazivom firme i mjestima te oznakom da se cijene razlikuju po prodajnom mjestu. Različite firme
+    se nikad ne spajaju. Mijenja `podaci` na mjestu i vraća sažetak.
+    """
+    n = len(podaci["lanci"])
+
+    def artikl(p, k):  # isti artikl u cjenicima različitih mjesta (bez barkoda svako mjesto ima vlastiti redak)
+        return ((p[8][k // 2][1] if p[8] and p[8][k // 2] else "") or "", normaliziraj(p[0]), p[2], p[3], p[6])
+
+    potpis = [[] for _ in range(n)]
+    for p in podaci["proizvodi"]:
+        for k in range(0, len(p[5]), 2):
+            potpis[p[5][k]].append((artikl(p, k), p[5][k + 1]))
+    firme, grupe = {}, {}
+    for l in range(n):
+        kf, ime, mjesto = firma_izvora(izvori_po_id[podaci["idLanaca"][l]])
+        firme.setdefault(kf, ime)
+        grupe.setdefault((kf, tuple(sorted(potpis[l]))), []).append((l, mjesto))
+    skupina_po_firmi = Counter(kf for kf, _ in grupe)
+    zadrzani, novi, nazivi, mjesta, razliciti, firme_lanaca = [], {}, [], [], [], []
+    for (kf, _), clanovi in grupe.items():
+        for l, _ in clanovi:
+            novi[l] = len(zadrzani)
+        zadrzani.append(clanovi[0][0])
+        m = [x for _, x in clanovi if x]
+        if skupina_po_firmi[kf] == 1:
+            naziv = firme[kf]
+        else:
+            naziv = f"{firme[kf]} · {', '.join(m[:2])}" + (f" i još {len(m) - 2}" if len(m) > 2 else "")
+        nazivi.append(naziv)
+        mjesta.append(m)
+        razliciti.append(skupina_po_firmi[kf] > 1)
+        firme_lanaca.append(firme[kf])
+    prije = {(a, novi[l], c) for l in range(n) for a, c in potpis[l]}
+    for p in podaci["proizvodi"]:
+        parovi, tragovi = [], []
+        for k in range(0, len(p[5]), 2):
+            l = p[5][k]
+            if zadrzani[novi[l]] == l:
+                parovi += [novi[l], p[5][k + 1]]
+                tragovi.append(p[8][k // 2])
+        p[5], p[8] = parovi, tragovi
+    # Retci samo s ponudama spojenih mjesta (isti artikl i cijena već su u unosu firme) više nisu potrebni.
+    podaci["proizvodi"] = [p for p in podaci["proizvodi"] if p[5]]
+    # Nijedna valjana ponuda se ne gubi: svaki (artikl, cijena) svakog mjesta postoji u unosu njegove skupine.
+    poslije = {(artikl(p, k), p[5][k], p[5][k + 1]) for p in podaci["proizvodi"] for k in range(0, len(p[5]), 2)}
+    assert prije == poslije, "spajanje firmi izgubilo bi ponudu"
+    stari = {k: podaci[k] for k in ("vrsteIzvora", "datumiLanaca", "urlLanaca", "idLanaca")}
+    podaci["lanci"] = nazivi
+    podaci["vrsteIzvora"] = [stari["vrsteIzvora"][l] for l in zadrzani]
+    podaci["urlLanaca"] = [stari["urlLanaca"][l] for l in zadrzani]
+    podaci["idLanaca"] = [stari["idLanaca"][l] for l in zadrzani]
+    # Datum unosa: najstariji datum mjesta u skupini (ne prikazuje se svježije od izvora).
+    podaci["datumiLanaca"] = [min((stari["datumiLanaca"][l] for l in range(n) if novi[l] == i), key=lambda d: d or "9999")
+                              for i in range(len(zadrzani))]
+    podaci["firmeLanaca"] = firme_lanaca
+    podaci["mjestaLanaca"] = mjesta
+    podaci["razlicitCjenikLanaca"] = razliciti
+    return {"firmi": len(firme), "izvora_poslovnica": n, "unosa_nakon_spajanja": len(zadrzani),
+            "spojenih_mjesta_istog_cjenika": n - len(zadrzani),
+            "firme_s_razlicitim_cjenicima_mjesta": sorted({firme[kf] for kf, c in skupina_po_firmi.items() if c > 1})}
 
 
 # ---------- Stranice s popisom cjenika (NN 101/2026) ----------
@@ -932,6 +1009,9 @@ def main():
     po_id = {i["id"]: i for i in izvori}
     spremi_uspjesne(stanje, po_id, preuzeto, a.predmemorija)
     brojke = brojke_uvoza(stanje, podaci)
+    if podaci:
+        brojke["firme"] = spoji_firme(podaci, po_id)
+        print("Firme: " + json.dumps(brojke["firme"], ensure_ascii=False))
     STANJE.parent.mkdir(parents=True, exist_ok=True)
     STANJE.write_text(json.dumps({"azurirano": datetime.now(timezone.utc).isoformat(timespec="minutes"), "brojke": brojke,
                                   "uvezeno": stanje, "nije-uvezeno": preskoceni}, ensure_ascii=False, indent=1), encoding="utf-8")
