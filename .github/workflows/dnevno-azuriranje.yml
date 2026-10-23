@@ -45,6 +45,7 @@ jobs:
           node tests/glasovni-unos.cjs
           node tests/filtri.cjs
           node tests/sve-u-jednom.cjs
+          node tests/sw.cjs
 
       # Zadnji valjani cjenik svakog izvora, za dan kad izvor ne radi (starost se provjerava pri uvozu).
       - uses: actions/cache/restore@v4
@@ -125,6 +126,7 @@ jobs:
           node tests/glasovni-unos.cjs
           node tests/filtri.cjs
           node tests/sve-u-jednom.cjs
+          node tests/sw.cjs
       - name: Izbornik kategorija Njuškala (samo kategorije, bez oglasa)
         continue-on-error: true
         timeout-minutes: 5
