@@ -933,11 +933,13 @@ function kombinacijaSDostavom(troskovi) {
   const skup = [];
   const probaj = () => {
     const narudzbe = new Map();
+    const dodjela = [];
     let materijal = 0;
     for (const t of troskovi) {
       let m = null;
       for (const l of skup) if (t.has(l) && (m === null || t.get(l) < t.get(m))) m = l;
       if (m === null) return;
+      dodjela.push(m);
       materijal += t.get(m);
       narudzbe.set(m, (narudzbe.get(m) || 0) + t.get(m));
     }
@@ -950,7 +952,7 @@ function kombinacijaSDostavom(troskovi) {
       dostave.push({ lanac: l, ime: podaci.lanci[l], materijal: iznos / 100, dostava: d });
     }
     if (!naj || ukupno < naj.ukupno || (ukupno === naj.ukupno && dostave.length < naj.dostave.length)) {
-      naj = { ukupno, materijal, dostave };
+      naj = { ukupno, materijal, dostave, dodjela };
     }
   };
   const rek = (od) => {
@@ -959,7 +961,8 @@ function kombinacijaSDostavom(troskovi) {
     for (let i = od; i < poznata.length; i++) { skup.push(poznata[i]); rek(i + 1); skup.pop(); }
   };
   rek(0);
-  return naj && { ukupno: naj.ukupno / 100, materijal: naj.materijal / 100, dostave: naj.dostave, trgovaca: naj.dostave.length };
+  return naj && { ukupno: naj.ukupno / 100, materijal: naj.materijal / 100, dostave: naj.dostave, trgovaca: naj.dostave.length,
+    dodjela: naj.dodjela };
 }
 
 function redTrgovine(r) {
@@ -1025,6 +1028,80 @@ function opisSDostavom(rez) {
   return dijelovi.join(" ");
 }
 
+// ---------- Pregled narudžbe ----------
+// Jedan pregled za cijeli popis: po trgovcu stavke, cijela pakiranja, iznos materijala i dostava. Stanja su odvojena:
+// "Izračun" (ništa nije poslano), "Pripremljen upit" (tekst za korisnika, ne šalje se). "Poslan zahtjev" i "Potvrda
+// trgovca" nisu podržani: nema dogovorenog kanala s trgovcima, pa se takva stanja nikad ne prikazuju.
+function pregledNarudzbe(rez) {
+  const { najboljePoStavci } = usporedbaKosarice();
+  let dodjela;
+  if (rez.dostava && rez.kombinacijaDostava) dodjela = rez.kombinacijaDostava.dodjela;
+  else if (!rez.dostava && rez.kombinacija !== null) {
+    dodjela = stanje.popis.map((stavka) => {
+      let naj = null;
+      for (const [l, p] of najboljePoStavci.get(stavka.naziv) || new Map()) {
+        const c = centi(p.cijena * brojPakiranja(stavka, p, true));
+        if (naj === null || c < naj[1]) naj = [l, c];
+      }
+      return naj && naj[0];
+    });
+  } else return null;
+  const po = new Map();
+  stanje.popis.forEach((stavka, j) => {
+    const l = dodjela[j];
+    const p = najboljePoStavci.get(stavka.naziv).get(l);
+    const pakiranja = brojPakiranja(stavka, p, true);
+    const r = po.get(l) || { lanac: l, ime: podaci.lanci[l], stavke: [], materijal: 0 };
+    r.stavke.push({ stavka: stavka.naziv, proizvod: podaci.proizvodi[p.i][0], pakiranja, iznos: centi(p.cijena * pakiranja) / 100 });
+    r.materijal = (centi(r.materijal) + centi(p.cijena * pakiranja)) / 100;
+    po.set(l, r);
+  });
+  const narudzbe = [...po.values()];
+  if (rez.dostava) for (const n of narudzbe) n.dostava = dostavaFirme(firmaLanca(n.lanac), n.materijal);
+  return narudzbe;
+}
+
+function tekstUpita(n) {
+  const a = stanje.adresa;
+  return [`Upit za ponudu / dostavu – ${n.ime}`, "",
+    ...n.stavke.map((x) => `- ${x.proizvod}: ${x.pakiranja} pak.`),
+    "", `Iznos materijala prema objavljenom cjeniku: ${euro(n.materijal)}`,
+    stanje.dostava ? `Dostava na: ${[a.ulica, [a.postanski, a.mjesto].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "(adresa nije upisana)"}` : "Preuzimanje u trgovini",
+    "Molim potvrdu raspoloživosti, cijene i uvjeta dostave."].join("\n");
+}
+
+function prikaziPregled(rez) {
+  const ul = $("pregled-narudzbe");
+  if (!ul) return;
+  ul.innerHTML = "";
+  const narudzbe = rez ? pregledNarudzbe(rez) : null;
+  $("pregled-prazno").hidden = !!(narudzbe && narudzbe.length);
+  if (!narudzbe) return;
+  for (const n of narudzbe) {
+    const li = document.createElement("li");
+    li.className = "narudzba";
+    const naslov = document.createElement("strong");
+    naslov.textContent = `${n.ime} · materijal ${euro(n.materijal)}`
+      + (n.dostava ? (n.dostava.stanje === "poznata" ? ` + dostava ${euro(n.dostava.cijena)}` : " + dostava na upit") : "");
+    const stavke = document.createElement("small");
+    stavke.textContent = n.stavke.map((x) => `${x.stavka}: ${x.pakiranja} × ${x.proizvod} (${euro(x.iznos)})`).join(" · ");
+    const status = document.createElement("small");
+    status.className = "stanje-narudzbe";
+    status.textContent = "Stanje: izračun – ništa nije poslano trgovcu." + (n.dostava ? ` ${n.dostava.opis}` : "");
+    const upit = gumb("Pripremi upit", "pripremi-upit", () => {
+      const t = document.createElement("textarea");
+      t.readOnly = true;
+      t.rows = 6;
+      t.value = tekstUpita(n);
+      status.textContent = "Stanje: pripremljen upit – nije poslan. Kopiraj ga i pošalji trgovcu sam ako želiš.";
+      li.appendChild(t);
+      upit.disabled = true;
+    }, `Pripremi tekst upita za ${n.ime}`);
+    li.append(naslov, stavke, status, upit);
+    ul.appendChild(li);
+  }
+}
+
 function prikaziJednuTrgovinu() {
   const ul = $("trgovine-usporedba");
   const ulN = $("trgovine-nepotpune");
@@ -1042,6 +1119,7 @@ function prikaziJednuTrgovinu() {
   for (const r of rez.potpune) ul.appendChild(redTrgovine(r));
   $("nepotpune-naslov").hidden = !rez.nepotpune.length;
   for (const r of rez.nepotpune) ulN.appendChild(redTrgovine(r));
+  prikaziPregled(rez);
   return rez;
 }
 

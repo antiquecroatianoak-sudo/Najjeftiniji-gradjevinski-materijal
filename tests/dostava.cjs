@@ -98,6 +98,13 @@ for (const a of [0, 1]) for (const b of [0, 1]) {
 }
 assert.equal(r.kombinacijaDostava.ukupno, naj);
 
+// Pregled narudžbe: dvije zasebne narudžbe (A cement, B ljepilo) s dostavom svake; stanje je samo izračun.
+let pregled = run(app, "pregledNarudzbe(sveUJednomDucanu())");
+assert.deepEqual(pregled.map((n) => [n.ime, n.materijal, n.dostava.cijena, n.stavke.map((x) => [x.stavka, x.pakiranja])]),
+  [["A", 100, 30, [["Cement", 20]]], ["B", 90, 20, [["Ljepilo za pločice", 10]]]]);
+run(app, "prikaziJednuTrgovinu()");
+assert.match(app.__cvorovi["pregled-narudzbe"].children[0].children[2].textContent, /^Stanje: izračun – ništa nije poslano trgovcu\./);
+assert.match(run(app, "tekstUpita(pregledNarudzbe(sveUJednomDucanu())[0])"), /Dostava na: 10000 Zagreb/);
 // 7) Promjena načina: popis i količine ostaju, usporedbe se računaju iznova.
 run(app, "postaviNacin(false)");
 assert.equal(run(app, "stanje.dostava"), false);

@@ -104,3 +104,6 @@ input::placeholder{color:#5f6b78}
 .adresa-dostave input{min-height:44px;font-size:17px;padding:8px 10px;border:1px solid #9aa6b1;border-radius:8px}
 .adresa-dostave .sirina,.adresa-dostave p{grid-column:1/-1}
 @media(max-width:520px){.nacin-izbor{grid-template-columns:1fr}.adresa-dostave{grid-template-columns:1fr}}
+.pregled-narudzbe{display:flex;flex-direction:column;gap:10px;margin:8px 0 16px}.narudzba{display:flex;flex-direction:column;gap:6px;border:1px solid #c9d1d8;border-radius:12px;padding:12px}
+.narudzba small{font-size:14px;line-height:1.4}.stanje-narudzbe{font-weight:600}.narudzba textarea{width:100%;font:inherit;font-size:14px}
+.pripremi-upit{align-self:flex-start;min-height:44px}
