@@ -45,6 +45,8 @@ jobs:
           node tests/glasovni-unos.cjs
           node tests/filtri.cjs
           node tests/sve-u-jednom.cjs
+          node tests/sw.cjs
+          node tests/dostava.cjs
 
       # Zadnji valjani cjenik svakog izvora, za dan kad izvor ne radi (starost se provjerava pri uvozu).
       - uses: actions/cache/restore@v4
@@ -125,6 +127,8 @@ jobs:
           node tests/glasovni-unos.cjs
           node tests/filtri.cjs
           node tests/sve-u-jednom.cjs
+          node tests/sw.cjs
+          node tests/dostava.cjs
       - name: Izbornik kategorija Njuškala (samo kategorije, bez oglasa)
         continue-on-error: true
         timeout-minutes: 5
@@ -159,6 +163,20 @@ jobs:
               d = json.loads(p.read_text())
               print(f"Jedinstvenih proizvoda: {len(d['proizvodi'])}, izvora: {len(d['lanci'])}, datum: {d['datum']}")
           PY
+      - name: Firme nakon spajanja prodajnih mjesta (dijagnoza)
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path("site/data/proizvodi.json").read_text())
+          for i, ime in enumerate(d["lanci"]):
+              print(f"{ime} | firma {d.get('firmeLanaca', [''])[i] if d.get('firmeLanaca') else ''} | mjesta {len((d.get('mjestaLanaca') or [[]]*len(d['lanci']))[i])} | različit cjenik {bool((d.get('razlicitCjenikLanaca') or [False]*len(d['lanci']))[i])}")
+          PY
+      - name: Službeni uvjeti dostave (za ručnu provjeru, ništa se ne uvozi)
+        continue-on-error: true
+        timeout-minutes: 15
+        run: python -u scripts/uvjeti_dostave.py
       - name: Sirovi uzorak spojenih redaka (dijagnoza)
         continue-on-error: true
         timeout-minutes: 10
@@ -170,6 +188,27 @@ jobs:
         continue-on-error: true
         run: |
           if [ -f site/data/proizvodi.json ]; then node scripts/revizija.cjs; fi
+      - name: Firme s prihvaćenim ponudama (stvarni uvoz)
+        run: python scripts/firme_izvjesce.py
+      - name: Preglednik (Chromium) - obje aplikacije na istom originu, nadogradnja SW, offline, mobilno 320/390 px
+        timeout-minutes: 25
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          # Playwright ne preuzima vlastiti Chromium za ovu sliku runnera; koristi se Google Chrome koji je na runneru.
+          export PREGLEDNIK="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
+          echo "Preglednik: $PREGLEDNIK ($("$PREGLEDNIK" --version))"
+          # Košarica: točno objavljena verzija s GitHub Pages (njezin repozitorij se ne mijenja).
+          K=https://antiquecroatianoak-sudo.github.io/Najjeftinija-kosarica
+          for f in index.html stil.css aplikacija.js skupine.js sw.js manifest.webmanifest ikona.svg ikona-192.png ikona-512.png \
+                   leaflet/leaflet.js leaflet/leaflet.css data/proizvodi.json data/skupine.json; do
+            mkdir -p "/tmp/kosarica/$(dirname "$f")"
+            curl -sSfL --retry 3 "$K/$f" -o "/tmp/kosarica/$f"
+          done
+          # Stara građevinska: glavna grana (objavljena verzija, service worker gradjevina-v14).
+          mkdir -p /tmp/stari
+          git fetch --depth=1 origin main
+          git archive FETCH_HEAD site | tar -x -C /tmp/stari --strip-components=1
+          node tests/preglednik.cjs --kosarica /tmp/kosarica --stari /tmp/stari --novi site --izlaz preglednik-dokazi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -180,6 +219,8 @@ jobs:
             site/data/njuskalo-kategorije.json
             site/data/revizija.json
             site/data/skupine.json
+            site/data/firme-izvjesce.json
+            preglednik-dokazi/
             site/data/webshop.json
             site/data/uzorak-spajanja.json
           if-no-files-found: ignore

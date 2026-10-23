@@ -350,4 +350,32 @@ pv, sv = u.obradi([{"id": "vek", "naziv": "Veker", "format": "xml"}], lambda i: 
 assert len(pv["proizvodi"]) == 5, [p[0] for p in pv["proizvodi"]]
 assert sv[0]["spojeno_u_izvoru"] == 1 and sv[0]["zasebne_varijante"] == 2, sv
 assert sorted(p[5][1] for p in pv["proizvodi"] if p[0].startswith("Škare")) == [31.99, 46.99]
+# Firme umjesto poslovnica (6345298392): tri prodajna mjesta Gavroproma, dva s istim cjenikom, jedno s drugom cijenom;
+# druga firma s istim proizvodom i cijenom nikad se ne spaja s Gavropromom.
+def csv_mjesta(cijena_cementa):
+    return ("naziv;sifra;mpc;jedinica\n" f"Cement CEM II 25 kg;1;{cijena_cementa};kom\nLjepilo A 25 kg;2;9.00;kom\n")
+izv = [{"id": "gav:z1", "naziv": "Gavroprom · Zagreb 1", "format": "csv", "datum": "2026-10-21", "roditelj": "gav"},
+       {"id": "gav:z2", "naziv": "Gavroprom · Zagreb 2", "format": "csv", "datum": "2026-10-20", "roditelj": "gav"},
+       {"id": "gav:st", "naziv": "Gavroprom · Split", "format": "csv", "datum": "2026-10-21", "roditelj": "gav"},
+       {"id": "dr", "naziv": "Druga firma", "format": "csv", "datum": "2026-10-21"}]
+sadrzaj = {"gav:z1": csv_mjesta("7.50"), "gav:z2": csv_mjesta("7.50"), "gav:st": csv_mjesta("7.90"), "dr": csv_mjesta("7.50")}
+pf, sf = u.obradi(izv, lambda i: sadrzaj[i["id"]], sada)
+ponude_prije = sum(len(p[5]) // 2 for p in pf["proizvodi"])
+saz = u.spoji_firme(pf, {i["id"]: i for i in izv})
+assert saz == {"firmi": 2, "izvora_poslovnica": 4, "unosa_nakon_spajanja": 3, "spojenih_mjesta_istog_cjenika": 1,
+               "firme_s_razlicitim_cjenicima_mjesta": ["Gavroprom"]}, saz
+assert pf["lanci"] == ["Gavroprom · Zagreb 1, Zagreb 2", "Gavroprom · Split", "Druga firma"], pf["lanci"]
+assert pf["firmeLanaca"] == ["Gavroprom", "Gavroprom", "Druga firma"] and pf["razlicitCjenikLanaca"] == [True, True, False]
+assert pf["mjestaLanaca"] == [["Zagreb 1", "Zagreb 2"], ["Split"], []]
+assert pf["datumiLanaca"][0] == "2026-10-20", "group date is the oldest outlet date"
+cement = sorted(x for p in pf["proizvodi"] if p[0].startswith("Cement") for x in zip(p[5][0::2], p[5][1::2]))
+assert cement == [(0, 7.5), (1, 7.9), (2, 7.5)], cement
+assert all(len(p[8]) == len(p[5]) // 2 and p[5] for p in pf["proizvodi"])
+assert sum(len(p[5]) // 2 for p in pf["proizvodi"]) == ponude_prije - 2, "only the identical outlet's duplicate offers go"
+# Jedno mjesto ili svi isti cjenik: naziv je samo firma.
+pj, _ = u.obradi(izv[:2], lambda i: sadrzaj[i["id"]], sada)
+u.spoji_firme(pj, {i["id"]: i for i in izv})
+assert pj["lanci"] == ["Gavroprom"] and pj["mjestaLanaca"] == [["Zagreb 1", "Zagreb 2"]] and pj["razlicitCjenikLanaca"] == [False]
+print("FIRME PASS: same price list once per firm (outlets kept as provenance), differing outlet prices kept apart and labelled, "
+      "different firms never merged, no valid offer lost, oldest outlet date")
 print("IMPORT PASS: units, dimensions, specs, CSV/XML, merge, special price, classifieds ranking, dedupe, stale, broken source, counts by stage, mixed store, cache after bad 200, empty listing, placeholder barcode 0, same barcode other code, variants under one code")

@@ -1,0 +1,125 @@
+{
+ "napomena": "Pravila dostave samo iz službenih uvjeta firme (URL, datum provjere, doslovni citat), ključ = naziv firme bez oznake (web). vrsta \"fiksno\" (iznos po narudžbi; opcionalno besplatno_od, min_narudzba, podrucje.postanski) uračunava se; \"na_upit\" se prikazuje s izvorom, nikad kao 0 €. Provjereno 23.10.2026. skriptom scripts/uvjeti_dostave.py (radna grana). Bez zapisa: Bačelić (robots.txt ne dopušta stranice dostave), TERMO-METAL (403), ARKOR (stranica dostave nije pronađena).",
+ "azurirano": "2026-10-23",
+ "pravila": {
+  "Profi baucentar": {
+   "vrsta": "na_upit",
+   "url": "https://profibaucentar.hr/isporuka/",
+   "provjereno": "2026-10-23",
+   "citat": "Cijena dostave za pojedinačnu narudžbu određuje se po ukupnoj težini pošiljke, tj. svih proizvoda iz narudžbe, i odredištu ovisno o tome dostavlja li se pošiljka u području kopnene Hrvatske ili na otoke.",
+   "napomena": "prema ukupnoj težini i odredištu; točan iznos u košarici trgovca",
+   "podrucje_opis": "Republika Hrvatska"
+  },
+  "Gavroprom": {
+   "vrsta": "na_upit",
+   "url": "https://www.gavroprom.hr/web/placanje-i-dostava-webshop/57/",
+   "provjereno": "2026-10-23",
+   "citat": "Cijena dostave biti će obračunata i prikazana prilikom zaključivanja narudžbe, a ovisi o težini, volumenu i krajnjem odredištu, osim u slučaju da dimenzije paketa odudaraju od standardnih uvijeta dobavljača.",
+   "napomena": "prema težini, volumenu i odredištu; objavljena tablica po masi, ali bruto masa pošiljke nije u cjenicima",
+   "podrucje_opis": "isključivo Republika Hrvatska",
+   "tablica_mase": [
+    [
+     2.5,
+     5.7
+    ],
+    [
+     4.5,
+     5.95
+    ],
+    [
+     9.5,
+     6.6
+    ],
+    [
+     14.5,
+     7.55
+    ],
+    [
+     19.5,
+     8.55
+    ],
+    [
+     24.5,
+     9.95
+    ],
+    [
+     30.5,
+     11.5
+    ],
+    [
+     35.5,
+     17.5
+    ],
+    [
+     45.5,
+     19.85
+    ],
+    [
+     55.5,
+     22.75
+    ],
+    [
+     65.5,
+     34.65
+    ],
+    [
+     75.5,
+     35.95
+    ],
+    [
+     85.5,
+     39.65
+    ]
+   ],
+   "tablica_napomena": "Doslovno sa stranice (kg do, EUR): 0-2,5 kg 5,70; 2-4,5 kg 5,95; 5-9,5 kg 6,60; ... 76-85,5 kg 39,65 EUR. Ne primjenjuje se automatski: masa pakiranja nije u cjeniku, a veliki teret ide drugim prijevoznikom."
+  },
+  "Top Alati": {
+   "vrsta": "na_upit",
+   "url": "https://top-alati.hr/uvjeti-koristenja",
+   "provjereno": "2026-10-23",
+   "citat": "Cijena dostave izračunava se na temelju težine paketa i adrese kupca.",
+   "napomena": "prema težini paketa i adresi",
+   "podrucje_opis": "cijela Hrvatska"
+  },
+  "Veker": {
+   "vrsta": "na_upit",
+   "url": "https://www.veker.hr/dostava",
+   "provjereno": "2026-10-23",
+   "citat": "Trošak dostave ovisi o okolnostima kao što su količina i lokacija dostave.",
+   "napomena": "prema količini i lokaciji; iznos vidljiv prije narudžbe",
+   "podrucje_opis": "cijela Hrvatska"
+  },
+  "Građevinska apoteka": {
+   "vrsta": "na_upit",
+   "url": "https://gradjevinska-apoteka.hr/uvjeti-kupnje/",
+   "provjereno": "2026-10-23",
+   "citat": "Trošak dostave obračunava se prema ukupnoj težini narudžbe i poštanskom broju adrese dostave, prema sljedećem cjeniku:",
+   "napomena": "prema ukupnoj težini i poštanskom broju (DPD); teška/paletna roba po dogovoru",
+   "podrucje_opis": "Republika Hrvatska"
+  },
+  "Telack": {
+   "vrsta": "na_upit",
+   "url": "https://telack.shop/index.php?route=information/information&language=hr-hr&information_id=2",
+   "provjereno": "2026-10-23",
+   "citat": "Trošak dostave se zaračunava u cijenu i vrijedi za Hrvatsku.",
+   "napomena": "iznos nije objavljen",
+   "podrucje_opis": "Hrvatska i Slovenija"
+  },
+  "MC PLUS": {
+   "vrsta": "na_upit",
+   "url": "https://mc-plus.hr/opci-uvjeti/",
+   "provjereno": "2026-10-23",
+   "citat": "Sve cijene izražene su u eurima (EUR), s uračunatim PDV-om (25%) i ne uključuju trošak dostave, koji se prikazuje zasebno prije završetka narudžbe.",
+   "napomena": "iznos se prikazuje prije završetka narudžbe (GLS)",
+   "podrucje_opis": "Republika Hrvatska"
+  },
+  "ERA-COMMERCE": {
+   "vrsta": "na_upit",
+   "url": "https://era-commerce.hr/stranica/uvjeti-koristenja",
+   "provjereno": "2026-10-23",
+   "citat": "Cijena dostave određuje se prema težini ili volumenu naručenog proizvoda (svaki proizvod ima navedenu jediničnu težinu te obračun volumena), cijene dostave vrijede za područje cijele Republike Hrvatske.",
+   "napomena": "prema težini ili volumenu; besplatna dostava 30 km od poslovnice koja ima artikle na zalihi",
+   "podrucje_opis": "cijela Hrvatska"
+  }
+ }
+}

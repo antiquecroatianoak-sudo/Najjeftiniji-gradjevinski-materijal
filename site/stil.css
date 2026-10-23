@@ -92,3 +92,18 @@ input::placeholder{color:#5f6b78}
 .trgovina-red:not(.nepotpun) .iznos{white-space:nowrap;max-width:none;min-width:0}
 .trgovina-red .lijevo{flex:1 1 auto;min-width:0}.trgovina-red .iznos{flex:0 0 auto}
 @media(max-width:360px){.trgovina-red:not(.nepotpun) .iznos{font-size:18px}}
+
+/* Bez dostave / S dostavom */
+.nacin-panel{margin:0 0 20px}.nacin-naslov{font-size:18px;margin-bottom:8px}
+.nacin-izbor{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.nacin-izbor button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;min-height:64px;border:2px solid #b9c3cc;border-radius:12px;background:#fff;color:inherit;font-size:18px}
+.nacin-izbor button small{font-size:14px;font-weight:400}
+.nacin-izbor button.odabran{border-color:#1d4f73;background:#e8f1f8;box-shadow:inset 0 0 0 1px #1d4f73}
+.adresa-dostave{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);min-width:0;gap:8px 12px;margin-top:12px;border:1px solid #c9d1d8;border-radius:12px;padding:12px}
+.adresa-dostave legend{font-weight:700;padding:0 4px}.adresa-dostave label{display:flex;flex-direction:column;gap:4px;font-size:15px;font-weight:600}
+.adresa-dostave input{width:100%;min-width:0;box-sizing:border-box;min-height:44px;font-size:17px;padding:8px 10px;border:1px solid #9aa6b1;border-radius:8px}
+.adresa-dostave .sirina,.adresa-dostave p{grid-column:1/-1}
+@media(max-width:520px){.nacin-izbor{grid-template-columns:1fr}.adresa-dostave{grid-template-columns:minmax(0,1fr)}}
+.pregled-narudzbe{display:flex;flex-direction:column;gap:10px;margin:8px 0 16px}.narudzba{display:flex;flex-direction:column;gap:6px;border:1px solid #c9d1d8;border-radius:12px;padding:12px}
+.narudzba small{font-size:14px;line-height:1.4}.stanje-narudzbe{font-weight:600}.narudzba textarea{width:100%;font:inherit;font-size:14px}
+.pripremi-upit{align-self:flex-start;min-height:44px}
